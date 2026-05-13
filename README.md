@@ -56,6 +56,7 @@ If a pre-computed `hmrc_data.snapshot` file is provided, place it in the `backen
 ```bash
 make import-data
 ```
+*Note: A point-in-time snapshot of HMRC Legislation from May 2026 is available on [release v1.0.0](https://github.com/BarnabasG/ai-tax-assistant/releases/tag/v1.0.0)*
 
 **Method B: Build from Scratch**
 Run the automated ETL pipeline to download and index everything from GOV.UK. 
