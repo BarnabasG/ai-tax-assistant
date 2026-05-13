@@ -4,6 +4,7 @@ A high-performance Retrieval-Augmented Generation (RAG) system for querying HMRC
 
 ## Features
 - **Local AI**: Fully private and offline inference using Ollama.
+- **Cloud Models**: Integrate with Ollama's hosted Cloud Models for heavier workloads.
 - **Hybrid Search**: Combines Dense Vector Search and BM25 Sparse Search for highly accurate retrieval.
 - **Live HMRC Data**: Scrapes and indexes official HMRC tax manuals directly from GOV.UK.
 - **Auto-Discovery**: Automatically detects models installed in your local Ollama instance.
@@ -38,6 +39,14 @@ cd backend
 cp .env.example .env
 ```
 *(Optional: Edit `.env` to configure a remote Ollama server if you have one).*
+
+### 5. Using Cloud Models (Optional)
+1. Sign up for a free account at [ollama.com](https://ollama.com/)
+2. Open your terminal and log in using the Ollama CLI:
+   ```bash
+   ollama login
+   ```
+Once authenticated, the UI will automatically route cloud model requests through your local Ollama instance to the cloud provider securely.
 
 ### 5. Ingest Data (Pick one method)
 You need to populate the database with the HMRC manuals.

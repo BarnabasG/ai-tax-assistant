@@ -112,7 +112,7 @@ export default function Home() {
   useEffect(() => {
     if (currentSessionId && messages.length > 0) {
       const timer = setTimeout(() => {
-        setSessions(prev => prev.map(s => 
+        setSessions(prev => prev.map(s =>
           s.id === currentSessionId ? { ...s, messages, updatedAt: Date.now() } : s
         ));
       }, 500);
@@ -173,7 +173,7 @@ export default function Home() {
     const handleMouseMove = (e: MouseEvent) => {
       e.preventDefault();
       const delta = e.clientX - dragStart.x;
-      
+
       if (isDragging === "history") {
         setHistoryWidth(Math.max(200, Math.min(dragStart.width + delta, window.innerWidth / 2)));
       } else if (isDragging === "search") {
@@ -289,8 +289,9 @@ export default function Home() {
     const userMsg: Message = { id: genId(), role: "user", content: query };
     const assistantMsg: Message = { id: genId(), role: "assistant", content: "", isStreaming: true };
 
+    const isNewSession = !currentSessionId;
     let activeSessionId = currentSessionId;
-    if (!activeSessionId) {
+    if (isNewSession) {
       activeSessionId = genId();
       setCurrentSessionId(activeSessionId);
       const title = query.length > 30 ? query.substring(0, 30) + "..." : query;
@@ -300,18 +301,6 @@ export default function Home() {
         messages: [userMsg, assistantMsg],
         updatedAt: Date.now()
       }, ...prev]);
-
-      fetch(`${API_URL}/generate-title`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ query }),
-      }).then(res => res.json()).then(data => {
-        if (data.title) {
-          setSessions(prev => prev.map(s => 
-            s.id === activeSessionId ? { ...s, title: data.title } : s
-          ));
-        }
-      }).catch(console.error);
     }
 
     const newHistory = [...history, userMsg];
@@ -383,6 +372,20 @@ export default function Home() {
             };
             return updated;
           });
+
+          if (isNewSession) {
+            fetch(`${API_URL}/generate-title`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ query, response: fullResponse }),
+            }).then(res => res.json()).then(data => {
+              if (data.title) {
+                setSessions(prev => prev.map(s =>
+                  s.id === activeSessionId ? { ...s, title: data.title } : s
+                ));
+              }
+            }).catch(console.error);
+          }
         } else if (hasTokenUpdate) {
           setMessages((prev) => {
             const updated = [...prev];
@@ -519,11 +522,11 @@ export default function Home() {
 
       {/* History Panel */}
       {historyOpen && (
-        <aside 
+        <aside
           className="relative flex-shrink-0 border-r border-border flex flex-col bg-card/20 animate-slide-in-left"
           style={{ width: historyWidth }}
         >
-          <div 
+          <div
             onMouseDown={(e) => {
               setIsDragging("history");
               setDragStart({ x: e.clientX, width: historyWidth });
@@ -556,11 +559,10 @@ export default function Home() {
               <div
                 key={s.id}
                 onClick={() => loadSession(s.id)}
-                className={`group relative px-3 py-2.5 rounded-lg cursor-pointer transition-colors ${
-                  currentSessionId === s.id
-                    ? "bg-secondary/80 text-foreground shadow-sm"
-                    : "text-muted-foreground hover:bg-secondary/40 hover:text-foreground"
-                }`}
+                className={`group relative px-3 py-2.5 rounded-lg cursor-pointer transition-colors ${currentSessionId === s.id
+                  ? "bg-secondary/80 text-foreground shadow-sm"
+                  : "text-muted-foreground hover:bg-secondary/40 hover:text-foreground"
+                  }`}
               >
                 <div className="text-sm truncate pr-6">{s.title}</div>
                 <button
@@ -590,11 +592,12 @@ export default function Home() {
             <div className="bg-card border border-border p-6 rounded-2xl max-w-sm w-full shadow-2xl mx-4">
               <h3 className="text-lg font-bold text-foreground mb-2">Cloud Model Selected</h3>
               <p className="text-sm text-muted-foreground mb-6 leading-relaxed">
-                You selected a cloud model. These require a free Ollama account to work properly. 
-                Please ensure you have signed up at <a href="https://ollama.com" target="_blank" rel="noreferrer" className="text-primary hover:underline">ollama.com</a>.
+                You selected a cloud model. These powerful hosted models require a free Ollama account to work properly.
+                Please ensure you have signed up at <a href="https://ollama.com" target="_blank" rel="noreferrer" className="text-primary hover:underline">ollama.com</a>
+                and then run <code>ollama login</code> in your terminal. <br /><br />
               </p>
               <div className="flex justify-end">
-                <button 
+                <button
                   onClick={() => setShowCloudWarning(false)}
                   className="bg-primary text-primary-foreground px-4 py-2 rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors"
                 >
@@ -634,9 +637,9 @@ export default function Home() {
           </div>
 
           <div className="flex items-center gap-3">
-            <div 
-              className="relative outline-none" 
-              tabIndex={0} 
+            <div
+              className="relative outline-none"
+              tabIndex={0}
               onBlur={(e) => {
                 if (!e.currentTarget.contains(e.relatedTarget as Node)) {
                   setDropdownOpen(false);
@@ -656,7 +659,7 @@ export default function Home() {
                   <ChevronDown size={12} className={`transition-transform ${dropdownOpen ? 'rotate-180' : ''}`} />
                 </div>
               </button>
-              
+
               {dropdownOpen && (
                 <div className="absolute top-full right-0 mt-1.5 w-56 bg-card border border-border rounded-xl shadow-xl overflow-hidden z-50 animate-in fade-in zoom-in-95 duration-100">
                   <div className="max-h-60 overflow-y-auto p-1">
@@ -671,11 +674,10 @@ export default function Home() {
                               handleModelChange(m.id);
                               setDropdownOpen(false);
                             }}
-                            className={`w-full flex items-center justify-between px-3 py-2 text-xs text-left rounded-md transition-colors ${
-                              selectedModel === m.id 
-                                ? 'bg-primary/10 text-primary font-medium' 
-                                : 'text-foreground hover:bg-secondary/80'
-                            }`}
+                            className={`w-full flex items-center justify-between px-3 py-2 text-xs text-left rounded-md transition-colors ${selectedModel === m.id
+                              ? 'bg-primary/10 text-primary font-medium'
+                              : 'text-foreground hover:bg-secondary/80'
+                              }`}
                           >
                             <span className="truncate">{m.name}</span>
                             {m.provider === 'cloud' && <span className="flex-shrink-0 ml-2 opacity-80">☁️</span>}
@@ -687,7 +689,7 @@ export default function Home() {
                 </div>
               )}
             </div>
-            
+
             {!searchOpen && (
               <button
                 onClick={() => setSearchOpen(true)}
@@ -754,12 +756,12 @@ export default function Home() {
                         {(() => {
                           let displayContent = msg.content;
                           let extractedSuggestions: string[] = [];
-                          
+
                           const suggestionMatch = displayContent.match(/<suggestions>([\s\S]*?)(?:<\/suggestions>|$)/i);
                           if (suggestionMatch) {
                             // Strip from display content so user doesn't see the raw tags
                             displayContent = displayContent.replace(/<suggestions>[\s\S]*?(?:<\/suggestions>|$)/ig, '').trim();
-                            
+
                             if (!msg.isStreaming && suggestionMatch[1]) {
                               extractedSuggestions = suggestionMatch[1]
                                 .replace(/<\/suggestions>/ig, '')
@@ -826,7 +828,7 @@ export default function Home() {
                                   )}
                                 </div>
                               )}
-                              
+
                               {/* Follow-up Suggestions */}
                               {extractedSuggestions.length > 0 && (
                                 <div className="flex flex-wrap gap-2 mt-4 pt-2 border-t border-border/50">
@@ -885,11 +887,11 @@ export default function Home() {
 
       {/* Sources Panel */}
       {sourcePanelOpen && (
-        <aside 
+        <aside
           className="relative flex-shrink-0 border-l border-border flex flex-col bg-card/50 animate-slide-in-right"
           style={{ width: sourceWidth }}
         >
-          <div 
+          <div
             onMouseDown={(e) => {
               setIsDragging("source");
               setDragStart({ x: e.clientX, width: sourceWidth });
@@ -987,11 +989,10 @@ export default function Home() {
                     <button
                       key={`${src.section_id}-${i}`}
                       onClick={() => loadSourcePage(src.section_id)}
-                      className={`w-full text-left p-3.5 rounded-xl border transition-all duration-150 group ${
-                        activeSourceId === src.section_id
-                          ? "border-primary/30 bg-primary/8"
-                          : "border-border bg-card/60 hover:border-primary/20 hover:bg-card"
-                      }`}
+                      className={`w-full text-left p-3.5 rounded-xl border transition-all duration-150 group ${activeSourceId === src.section_id
+                        ? "border-primary/30 bg-primary/8"
+                        : "border-border bg-card/60 hover:border-primary/20 hover:bg-card"
+                        }`}
                     >
                       <div className="flex items-center gap-2 mb-1.5">
                         <span className="bg-primary/15 text-primary px-1.5 py-0.5 rounded text-[10px] font-bold font-mono">
@@ -1012,11 +1013,11 @@ export default function Home() {
 
       {/* Search Panel */}
       {searchOpen && (
-        <aside 
+        <aside
           className="relative flex-shrink-0 border-l border-border flex flex-col bg-card/40 animate-slide-in-right"
           style={{ width: searchWidth }}
         >
-          <div 
+          <div
             onMouseDown={(e) => {
               setIsDragging("search");
               setDragStart({ x: e.clientX, width: searchWidth });

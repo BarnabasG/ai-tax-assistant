@@ -59,11 +59,17 @@ async def search_endpoint(req: SearchRequest):
 
 class TitleRequest(BaseModel):
     query: str
+    response: str = ""
 
 @app.post("/generate-title")
 async def generate_title(req: TitleRequest):
     from llm import router
-    messages = [{"role": "user", "content": f"Generate a very short, 2 to 4 word title for this question. Only output the title, no quotes or punctuation: {req.query}"}]
+    content = f"Generate a very short, 4 to 8 word title for this conversation. Question: {req.query}"
+    if req.response:
+        content += f"\nAnswer: {req.response}"
+    content += "\nOnly output the title, no quotes or punctuation."
+    
+    messages = [{"role": "user", "content": content}]
     try:
         full_response = ""
         import json
