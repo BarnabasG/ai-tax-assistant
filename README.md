@@ -15,8 +15,8 @@ Ensure you have the following installed:
 
 ### 1. Clone & Infrastructure
 ```bash
-git clone <your-repo-url>
-cd hmrc_rag
+git clone https://github.com/BarnabasG/ai-tax-assistant.git
+cd ai-tax-assistant
 docker-compose up -d  # Starts Qdrant Vector Database
 ```
 
