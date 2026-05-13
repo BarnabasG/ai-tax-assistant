@@ -34,10 +34,11 @@ async def chat_endpoint(req: ChatRequest):
 
 @app.post("/search")
 async def search_endpoint(req: SearchRequest):
+    from fastapi.concurrency import run_in_threadpool
     dense = await embed_query(req.query)
-    sparse = generate_sparse_vector(req.query)
+    sparse = await run_in_threadpool(generate_sparse_vector, req.query)
     
-    results = store.hybrid_search(dense, sparse, limit=req.limit)
+    results = await run_in_threadpool(store.hybrid_search, dense, sparse, limit=req.limit)
     
     # Group by manual
     manuals = {}
@@ -60,6 +61,7 @@ async def search_endpoint(req: SearchRequest):
 class TitleRequest(BaseModel):
     query: str
     response: str = ""
+    model: str = "gemma3:12b-cloud"
 
 @app.post("/generate-title")
 async def generate_title(req: TitleRequest):
@@ -70,25 +72,36 @@ async def generate_title(req: TitleRequest):
     content += "\nOnly output the title, no quotes or punctuation."
     
     messages = [{"role": "user", "content": content}]
-    try:
+    
+    async def try_model(model_name: str) -> str:
         full_response = ""
         import json
-        async for chunk in router.stream_chat(messages, "gemma3:12b-cloud"):
+        async for chunk in router.stream_chat(messages, model_name):
             try:
                 data = json.loads(chunk.strip())
                 if "token" in data:
                     full_response += data["token"]
             except Exception:
                 pass
-        title = full_response.strip().strip('"').strip("'").strip("*")
+        return full_response.strip().strip('"').strip("'").strip("*")
+
+    try:
+        title = await try_model("gemma3:12b-cloud")
         if not title:
-            title = req.query[:30]
+            raise ValueError("Empty response")
         return {"title": title}
     except Exception:
+        if req.model and req.model != "gemma3:12b-cloud":
+            try:
+                title = await try_model(req.model)
+                if title:
+                    return {"title": title}
+            except Exception:
+                pass
         return {"title": req.query[:30]}
 
 @app.get("/page")
-async def get_page(code: str):
+def get_page(code: str):
     results = store.get_by_section_id(code)
     if not results:
         return {"error": "Page not found"}
@@ -139,7 +152,7 @@ async def autocomplete(q: str):
     return {"suggestions": suggestions}
 
 @app.get("/manual-tree")
-async def manual_tree(manual: str):
+def manual_tree(manual: str):
     results = store.get_sections_for_manual(manual)
     
     # Reconstruct tree from breadcrumbs

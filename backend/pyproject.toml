@@ -17,3 +17,32 @@ dependencies = [
     "fastembed>=0.6",
     "requests>=2.31.0",
 ]
+
+[dependency-groups]
+dev = [
+    "httpx>=0.28.1",
+    "pytest>=9.0.3",
+    "pytest-api-cov>=1.3.8",
+    "pytest-asyncio>=1.3.0",
+    "pytest-cov>=7.1.0",
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+
+[tool.pytest_api_cov]
+fail_under = 100.0
+show_covered_endpoints = true
+report_path = "reports/api-coverage-report.json"
+
+[tool.coverage.run]
+core = "sysmon"
+omit = [
+    "tests/*",
+    "src/etl/test_*.py",
+]
+
+[tool.coverage.report]
+fail-under = 90
+

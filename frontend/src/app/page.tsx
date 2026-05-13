@@ -86,22 +86,19 @@ export default function Home() {
   const [isChatting, setIsChatting] = useState(false);
 
   // History state
-  const [sessions, setSessions] = useState<ChatSession[]>([]);
+  const [sessions, setSessions] = useState<ChatSession[]>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const saved = localStorage.getItem("hmrc-rag-history");
+        if (saved) return JSON.parse(saved);
+      } catch (e) {
+        console.error("Failed to parse history", e);
+      }
+    }
+    return [];
+  });
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const [historyOpen, setHistoryOpen] = useState(true);
-
-  // Load history from local storage
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem("hmrc-rag-history");
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        setSessions(parsed);
-      }
-    } catch (e) {
-      console.error("Failed to parse history", e);
-    }
-  }, []);
 
   // Save history to local storage when it changes
   useEffect(() => {
@@ -166,6 +163,10 @@ export default function Home() {
   const [sourceWidth, setSourceWidth] = useState(420);
   const [isDragging, setIsDragging] = useState<"history" | "search" | "source" | null>(null);
   const [dragStart, setDragStart] = useState<{ x: number, width: number } | null>(null);
+  
+  const historyPanelRef = useRef<HTMLElement>(null);
+  const searchPanelRef = useRef<HTMLElement>(null);
+  const sourcePanelRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
     if (!isDragging || !dragStart) return;
@@ -175,15 +176,25 @@ export default function Home() {
       const delta = e.clientX - dragStart.x;
 
       if (isDragging === "history") {
-        setHistoryWidth(Math.max(200, Math.min(dragStart.width + delta, window.innerWidth / 2)));
+        const newWidth = Math.max(200, Math.min(dragStart.width + delta, window.innerWidth / 2));
+        if (historyPanelRef.current) historyPanelRef.current.style.width = `${newWidth}px`;
       } else if (isDragging === "search") {
-        setSearchWidth(Math.max(250, Math.min(dragStart.width - delta, window.innerWidth / 1.5)));
+        const newWidth = Math.max(250, Math.min(dragStart.width - delta, window.innerWidth / 1.5));
+        if (searchPanelRef.current) searchPanelRef.current.style.width = `${newWidth}px`;
       } else if (isDragging === "source") {
-        setSourceWidth(Math.max(300, Math.min(dragStart.width - delta, window.innerWidth / 1.5)));
+        const newWidth = Math.max(300, Math.min(dragStart.width - delta, window.innerWidth / 1.5));
+        if (sourcePanelRef.current) sourcePanelRef.current.style.width = `${newWidth}px`;
       }
     };
 
     const handleMouseUp = () => {
+      if (isDragging === "history" && historyPanelRef.current) {
+        setHistoryWidth(parseInt(historyPanelRef.current.style.width));
+      } else if (isDragging === "search" && searchPanelRef.current) {
+        setSearchWidth(parseInt(searchPanelRef.current.style.width));
+      } else if (isDragging === "source" && sourcePanelRef.current) {
+        setSourceWidth(parseInt(sourcePanelRef.current.style.width));
+      }
       setIsDragging(null);
       setDragStart(null);
     };
@@ -377,7 +388,7 @@ export default function Home() {
             fetch(`${API_URL}/generate-title`, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ query, response: fullResponse }),
+              body: JSON.stringify({ query, response: fullResponse, model: modelToUse }),
             }).then(res => res.json()).then(data => {
               if (data.title) {
                 setSessions(prev => prev.map(s =>
@@ -523,6 +534,7 @@ export default function Home() {
       {/* History Panel */}
       {historyOpen && (
         <aside
+          ref={historyPanelRef}
           className="relative flex-shrink-0 border-r border-border flex flex-col bg-card/20 animate-slide-in-left"
           style={{ width: historyWidth }}
         >
@@ -888,6 +900,7 @@ export default function Home() {
       {/* Sources Panel */}
       {sourcePanelOpen && (
         <aside
+          ref={sourcePanelRef}
           className="relative flex-shrink-0 border-l border-border flex flex-col bg-card/50 animate-slide-in-right"
           style={{ width: sourceWidth }}
         >
@@ -1014,6 +1027,7 @@ export default function Home() {
       {/* Search Panel */}
       {searchOpen && (
         <aside
+          ref={searchPanelRef}
           className="relative flex-shrink-0 border-l border-border flex flex-col bg-card/40 animate-slide-in-right"
           style={{ width: searchWidth }}
         >

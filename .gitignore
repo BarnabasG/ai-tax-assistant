@@ -16,13 +16,17 @@ dist/
 *.log
 
 # Project Specific
-backend/data/
+backend/src/data/
 backend/.env
+backend/reports/
 .env
-ollama_serve_logs.log
 implementation_plan.md
 status.md
 
 # OS
 .DS_Store
 Thumbs.db
+
+# Misc
+.agents/
+.vscode/
