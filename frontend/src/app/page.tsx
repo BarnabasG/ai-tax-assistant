@@ -625,9 +625,12 @@ export default function Home() {
                 <PanelLeftOpen size={16} />
               </button>
             )}
-            <h1 className="text-base font-semibold text-foreground">
-              HMRC Tax Assistant
-            </h1>
+            <div className="flex items-center gap-2">
+              <img src="/logo.svg" alt="Logo" className="w-8 h-8" />
+              <h1 className="text-base font-semibold text-foreground">
+                HMRC Tax Assistant
+              </h1>
+            </div>
           </div>
 
           <div className="flex items-center gap-3">

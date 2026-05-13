@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="doc" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#1e2536" />
+      <stop offset="100%" stop-color="#0c0f17" />
+    </linearGradient>
+    <linearGradient id="star" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#5bcdfa" />
+      <stop offset="100%" stop-color="#6c8aff" />
+    </linearGradient>
+  </defs>
+
+  <rect width="512" height="512" rx="128" fill="transparent" />
+
+  <!-- Document Base -->
+  <path d="M 160 80 L 304 80 L 384 160 L 384 384 C 384 401.6 369.6 416 352 416 L 160 416 C 142.4 416 128 401.6 128 384 L 128 112 C 128 94.4 142.4 80 160 80 Z" fill="url(#doc)" stroke="#3b4560" stroke-width="24" stroke-linejoin="round" />
+  
+  <!-- Fold -->
+  <path d="M 304 80 L 304 160 L 384 160" fill="none" stroke="#3b4560" stroke-width="24" stroke-linejoin="round" stroke-linecap="round" />
+
+  <!-- Lines -->
+  <rect x="192" y="216" width="128" height="24" rx="12" fill="#6c8aff" opacity="0.6" />
+  <rect x="192" y="280" width="80" height="24" rx="12" fill="#6c8aff" opacity="0.4" />
+
+  <!-- AI Star -->
+  <path d="M 384 256 C 384 320 336 368 272 368 C 336 368 384 416 384 480 C 384 416 432 368 496 368 C 432 368 384 320 384 256 Z" fill="url(#star)" />
+  <circle cx="384" cy="368" r="28" fill="#ffffff" />
+</svg>
