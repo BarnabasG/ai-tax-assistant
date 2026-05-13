@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+.venv/
+*.pyc
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Node.js
+node_modules/
+.next/
+out/
+build/
+dist/
+.npm
+*.log
+
+# Project Specific
+backend/data/
+backend/.env
+.env
+ollama_serve_logs.log
+implementation_plan.md
+status.md
+
+# OS
+.DS_Store
+Thumbs.db

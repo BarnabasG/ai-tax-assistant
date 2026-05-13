@@ -1,0 +1,18 @@
+[project]
+name = "hmrc-rag"
+version = "0.1.0"
+description = "HMRC Tax Legislation RAG System"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn>=0.34",
+    "aiohttp>=3.11",
+    "qdrant-client>=1.12",
+    "tqdm>=4.67",
+    "pydantic>=2.10",
+    "google-genai>=1.14",
+    "sse-starlette>=2.0",
+    "beautifulsoup4>=4.12",
+    "python-dotenv>=1.0",
+    "fastembed>=0.6",
+]
