@@ -105,7 +105,7 @@
 
 /* Citation inline lozenge badge */
 .citation-btn {
-  @apply inline-flex items-center gap-1 bg-primary/15 text-primary px-2 py-0.5 rounded-full text-xs font-bold font-mono cursor-pointer transition-all duration-150 border border-primary/20 hover:bg-primary/25 hover:border-primary/40 hover:shadow-sm hover:shadow-primary/10 align-middle mx-0.5;
+  @apply inline-flex items-center gap-1 bg-primary/15 text-primary px-2 py-0.5 rounded-full text-xs font-bold font-mono cursor-pointer transition-all duration-150 border border-primary/20 hover:bg-primary/25 hover:border-primary/40 hover:shadow-sm hover:shadow-primary/10 align-middle ml-1.5 mr-0.5;
 }
 
 /* Suggestion chip */

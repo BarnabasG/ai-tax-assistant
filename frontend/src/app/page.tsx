@@ -62,7 +62,7 @@ type Model = {
 };
 
 // Constants
-const API_URL = "http://localhost:8000";
+const API_URL = "http://localhost:8002";
 
 const SUGGESTIONS = [
   "Can a business claim VAT back on legal expenses for an insurance claim?",

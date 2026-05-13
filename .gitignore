@@ -22,6 +22,8 @@ backend/reports/
 .env
 implementation_plan.md
 status.md
+.gstack/
+skills-lock.json
 
 # OS
 .DS_Store

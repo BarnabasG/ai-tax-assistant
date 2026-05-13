@@ -1,3 +1,5 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
@@ -6,8 +8,14 @@ from pydantic import BaseModel
 from embed import generate_sparse_vector
 from qdrant_store import store
 from rag import stream_rag_answer, embed_query
+from llm import router
 
-app = FastAPI(title="HMRC RAG API")
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    yield
+    await router.close()
+
+app = FastAPI(title="HMRC RAG API", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -65,7 +73,6 @@ class TitleRequest(BaseModel):
 
 @app.post("/generate-title")
 async def generate_title(req: TitleRequest):
-    from llm import router
     content = f"Generate a very short, 4 to 8 word title for this conversation. Question: {req.query}"
     if req.response:
         content += f"\nAnswer: {req.response}"
@@ -169,5 +176,4 @@ def manual_tree(manual: str):
 
 @app.get("/models")
 async def list_models():
-    from llm import router
     return await router.get_available_models()
