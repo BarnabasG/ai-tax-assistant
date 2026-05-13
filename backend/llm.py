@@ -73,6 +73,7 @@ class LLMRouter:
         if ollama_running:
             cloud_model_ids = [
                 "gemma4:31b-cloud",
+                "gemma3:12b-cloud",
                 "gpt-oss:20b-cloud",
                 "gpt-oss:120b-cloud",
             ]
@@ -84,12 +85,10 @@ class LLMRouter:
                     base_name = base_name.replace("Gpt", "GPT").replace("Oss", "OSS")
                 
                 # Special cases for formatting
-                if cid == "kimi-k2.6:cloud": name = "Kimi K2.6"
-                elif cid == "gemma4:31b-cloud": name = "Gemma 4 31B"
+                if cid == "gemma4:31b-cloud": name = "Gemma 4 31B"
+                elif cid == "gemma3:12b-cloud": name = "Gemma 3 12B"
                 elif cid == "gpt-oss:20b-cloud": name = "GPT-OSS 20B"
                 elif cid == "gpt-oss:120b-cloud": name = "GPT-OSS 120B"
-                elif cid == "deepseek-v4-flash:cloud": name = "DeepSeek v4 Flash"
-                elif cid == "glm-4.6:cloud": name = "GLM 4.6"
                 else: name = base_name
 
                 models.append({

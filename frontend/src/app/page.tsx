@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, Fragment } from "react";
 import {
   Search, Book, ChevronRight, Send, Bot, FileText,
   Loader2, Copy, RefreshCw, BookOpen, X, Check, Plus, MessageSquare,
@@ -154,12 +154,52 @@ export default function Home() {
   const [searchResults, setSearchResults] = useState<Record<string, ManualGroup>>({});
   const [isSearching, setIsSearching] = useState(false);
 
-  // Source panel (right)
   const [sourcePanelOpen, setSourcePanelOpen] = useState(false);
   const [activeSources, setActiveSources] = useState<SourceInfo[]>([]);
   const [activeSourcePage, setActiveSourcePage] = useState<PageData | null>(null);
   const [isLoadingSource, setIsLoadingSource] = useState(false);
   const [activeSourceId, setActiveSourceId] = useState<string | null>(null);
+
+  // Resizer state
+  const [historyWidth, setHistoryWidth] = useState(256);
+  const [searchWidth, setSearchWidth] = useState(320);
+  const [sourceWidth, setSourceWidth] = useState(420);
+  const [isDragging, setIsDragging] = useState<"history" | "search" | "source" | null>(null);
+  const [dragStart, setDragStart] = useState<{ x: number, width: number } | null>(null);
+
+  useEffect(() => {
+    if (!isDragging || !dragStart) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      e.preventDefault();
+      const delta = e.clientX - dragStart.x;
+      
+      if (isDragging === "history") {
+        setHistoryWidth(Math.max(200, Math.min(dragStart.width + delta, window.innerWidth / 2)));
+      } else if (isDragging === "search") {
+        setSearchWidth(Math.max(250, Math.min(dragStart.width - delta, window.innerWidth / 1.5)));
+      } else if (isDragging === "source") {
+        setSourceWidth(Math.max(300, Math.min(dragStart.width - delta, window.innerWidth / 1.5)));
+      }
+    };
+
+    const handleMouseUp = () => {
+      setIsDragging(null);
+      setDragStart(null);
+    };
+
+    document.addEventListener("mousemove", handleMouseMove);
+    document.addEventListener("mouseup", handleMouseUp);
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+
+    return () => {
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleMouseUp);
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+    };
+  }, [isDragging, dragStart]);
 
   // Copy feedback
   const [copiedMsgId, setCopiedMsgId] = useState<string | null>(null);
@@ -260,6 +300,18 @@ export default function Home() {
         messages: [userMsg, assistantMsg],
         updatedAt: Date.now()
       }, ...prev]);
+
+      fetch(`${API_URL}/generate-title`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query }),
+      }).then(res => res.json()).then(data => {
+        if (data.title) {
+          setSessions(prev => prev.map(s => 
+            s.id === activeSessionId ? { ...s, title: data.title } : s
+          ));
+        }
+      }).catch(console.error);
     }
 
     const newHistory = [...history, userMsg];
@@ -467,7 +519,17 @@ export default function Home() {
 
       {/* History Panel */}
       {historyOpen && (
-        <aside className="w-64 flex-shrink-0 border-r border-border flex flex-col bg-card/20 animate-slide-in-left">
+        <aside 
+          className="relative flex-shrink-0 border-r border-border flex flex-col bg-card/20 animate-slide-in-left"
+          style={{ width: historyWidth }}
+        >
+          <div 
+            onMouseDown={(e) => {
+              setIsDragging("history");
+              setDragStart({ x: e.clientX, width: historyWidth });
+            }}
+            className="absolute top-0 right-[-3px] w-1.5 h-full cursor-col-resize hover:bg-primary/50 transition-colors z-50"
+          />
           <div className="p-4 border-b border-border flex items-center justify-between">
             <h2 className="text-sm font-semibold text-foreground flex items-center gap-2">
               <MessageSquare size={15} className="text-primary" />
@@ -595,24 +657,29 @@ export default function Home() {
               {dropdownOpen && (
                 <div className="absolute top-full right-0 mt-1.5 w-56 bg-card border border-border rounded-xl shadow-xl overflow-hidden z-50 animate-in fade-in zoom-in-95 duration-100">
                   <div className="max-h-60 overflow-y-auto p-1">
-                    {models.map((m) => (
-                      <button
-                        key={m.id}
-                        type="button"
-                        onClick={() => {
-                          handleModelChange(m.id);
-                          setDropdownOpen(false);
-                        }}
-                        className={`w-full flex items-center justify-between px-3 py-2 text-xs text-left rounded-md transition-colors ${
-                          selectedModel === m.id 
-                            ? 'bg-primary/10 text-primary font-medium' 
-                            : 'text-foreground hover:bg-secondary/80'
-                        }`}
-                      >
-                        <span className="truncate">{m.name}</span>
-                        {m.provider === 'cloud' && <span className="flex-shrink-0 ml-2 opacity-80">☁️</span>}
-                      </button>
-                    ))}
+                    {models.map((m, index) => {
+                      const showSeparator = index > 0 && m.provider === 'cloud' && models[index - 1].provider !== 'cloud';
+                      return (
+                        <Fragment key={m.id}>
+                          {showSeparator && <div className="h-px bg-border my-1 mx-2" />}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              handleModelChange(m.id);
+                              setDropdownOpen(false);
+                            }}
+                            className={`w-full flex items-center justify-between px-3 py-2 text-xs text-left rounded-md transition-colors ${
+                              selectedModel === m.id 
+                                ? 'bg-primary/10 text-primary font-medium' 
+                                : 'text-foreground hover:bg-secondary/80'
+                            }`}
+                          >
+                            <span className="truncate">{m.name}</span>
+                            {m.provider === 'cloud' && <span className="flex-shrink-0 ml-2 opacity-80">☁️</span>}
+                          </button>
+                        </Fragment>
+                      );
+                    })}
                   </div>
                 </div>
               )}
@@ -815,7 +882,17 @@ export default function Home() {
 
       {/* Sources Panel */}
       {sourcePanelOpen && (
-        <aside className="w-[420px] flex-shrink-0 border-l border-border flex flex-col bg-card/50 animate-slide-in-right">
+        <aside 
+          className="relative flex-shrink-0 border-l border-border flex flex-col bg-card/50 animate-slide-in-right"
+          style={{ width: sourceWidth }}
+        >
+          <div 
+            onMouseDown={(e) => {
+              setIsDragging("source");
+              setDragStart({ x: e.clientX, width: sourceWidth });
+            }}
+            className="absolute top-0 left-[-3px] w-1.5 h-full cursor-col-resize hover:bg-primary/50 transition-colors z-50"
+          />
           {/* Header */}
           <div className="p-4 border-b border-border flex items-center justify-between flex-shrink-0">
             <h2 className="text-sm font-semibold text-foreground flex items-center gap-2">
@@ -932,7 +1009,17 @@ export default function Home() {
 
       {/* Search Panel */}
       {searchOpen && (
-        <aside className="w-80 flex-shrink-0 border-l border-border flex flex-col bg-card/40 animate-slide-in-right">
+        <aside 
+          className="relative flex-shrink-0 border-l border-border flex flex-col bg-card/40 animate-slide-in-right"
+          style={{ width: searchWidth }}
+        >
+          <div 
+            onMouseDown={(e) => {
+              setIsDragging("search");
+              setDragStart({ x: e.clientX, width: searchWidth });
+            }}
+            className="absolute top-0 left-[-3px] w-1.5 h-full cursor-col-resize hover:bg-primary/50 transition-colors z-50"
+          />
           {/* Header */}
           <div className="p-4 border-b border-border flex items-center justify-between">
             <h2 className="text-sm font-semibold text-foreground flex items-center gap-2">

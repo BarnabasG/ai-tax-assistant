@@ -57,6 +57,30 @@ async def search_endpoint(req: SearchRequest):
         
     return {"groups": manuals}
 
+class TitleRequest(BaseModel):
+    query: str
+
+@app.post("/generate-title")
+async def generate_title(req: TitleRequest):
+    from llm import router
+    messages = [{"role": "user", "content": f"Generate a very short, 2 to 4 word title for this question. Only output the title, no quotes or punctuation: {req.query}"}]
+    try:
+        full_response = ""
+        import json
+        async for chunk in router.stream_chat(messages, "gemma3:12b-cloud"):
+            try:
+                data = json.loads(chunk.strip())
+                if "token" in data:
+                    full_response += data["token"]
+            except Exception:
+                pass
+        title = full_response.strip().strip('"').strip("'").strip("*")
+        if not title:
+            title = req.query[:30]
+        return {"title": title}
+    except Exception:
+        return {"title": req.query[:30]}
+
 @app.get("/page")
 async def get_page(code: str):
     results = store.get_by_section_id(code)
