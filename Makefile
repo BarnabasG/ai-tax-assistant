@@ -17,3 +17,9 @@ evaluate:
 
 clean:
 	cd backend && uv run python -c "from qdrant_store import store; import asyncio; asyncio.run(store.wipe())"
+
+export-data:
+	cd backend && uv run python snapshot.py export
+
+import-data:
+	cd backend && uv run python snapshot.py import

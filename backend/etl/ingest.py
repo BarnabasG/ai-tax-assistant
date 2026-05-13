@@ -1,6 +1,5 @@
 """
 Ingestion Orchestrator: Runs discover -> fetch -> parse -> embed.
-Keeps state to resume gracefully.
 """
 
 import asyncio
@@ -17,7 +16,7 @@ from embed import process_pipeline
 DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "data")
 STATE_FILE = os.path.join(DATA_DIR, "ingest_state.json")
 
-# Add parent to path so we can import modules
+# Module path setup
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 
@@ -63,7 +62,7 @@ async def run_pipeline():
         print("Everything is up to date!")
         return
 
-    # Process in batches and save state iteratively
+    # Batch process and checkpoint state
     async for processed_batch in process_pipeline(docs_to_process):
         state["processed_sections"].extend([d["section_id"] for d in processed_batch])
         save_state(state)

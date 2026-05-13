@@ -25,7 +25,7 @@ TEST_CASES = [
         "query": "What is the VAT fraction for motoring road fuel?",
         "expected_code": "VIT55400",
     },
-    # Add more test cases here to build a robust benchmark
+
 ]
 
 async def run_evaluation():
@@ -80,7 +80,7 @@ async def run_evaluation():
         json.dump(results, f, indent=2)
 
 if __name__ == "__main__":
-    # Ensure Qdrant collection exists and has data before running
+    # Pre-run checks
     if store.count() == 0:
         print("Error: Qdrant collection is empty. Run 'make ingest' first.")
     else:

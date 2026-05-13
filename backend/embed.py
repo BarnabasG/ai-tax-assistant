@@ -1,6 +1,6 @@
 """
 Embed: Chunks text, generates dense and sparse vectors via Ollama and Qdrant, and upserts.
-Adapted from law_graph.
+
 """
 
 import asyncio
@@ -119,9 +119,7 @@ async def generate_embeddings(session: aiohttp.ClientSession, texts: list[str]) 
             return [[]]
 
 
-# --- FastEmbed BM25 sparse encoder ---
-# Uses Qdrant's own BM25 model with proper tokenization, stop-word removal,
-# and vocabulary-aligned indices (no hash collisions).
+# FastEmbed BM25 sparse encoder
 from fastembed import SparseTextEmbedding
 
 _bm25_encoder = SparseTextEmbedding(model_name="Qdrant/bm25")
@@ -145,7 +143,7 @@ def generate_sparse_vector_query(text: str) -> SparseVector:
     )
 
 
-# Backward-compatible alias — default to query encoding for search callers
+# Search alias
 generate_sparse_vector = generate_sparse_vector_query
 
 
@@ -200,7 +198,7 @@ async def embed_and_upsert_batch(session: aiohttp.ClientSession, docs: list[dict
             
         sparse = generate_sparse_vector_passage(text)
         
-        # UUID generation: Qdrant requires UUID or Int. We hash the point_id.
+        # UUID generation
         import hashlib
         import uuid
         hashed_id = hashlib.md5(point_id.encode()).hexdigest()
@@ -220,7 +218,7 @@ async def embed_and_upsert_batch(session: aiohttp.ClientSession, docs: list[dict
         points.append(point)
 
     if points:
-        # This blocks, but it's fast enough
+
         store.upsert_batch(points)
 
 

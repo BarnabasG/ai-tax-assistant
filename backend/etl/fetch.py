@@ -1,6 +1,5 @@
 """
 Fetch: Downloads the raw JSON content from the GOV.UK Content API for discovered sections.
-Uses an async semaphore and exponential backoff. Caches to disk.
 """
 
 import asyncio
@@ -49,7 +48,6 @@ async def fetch_section(
                             json.dump(data, f)
                         return True
                     elif resp.status == 404:
-                        # Page was deleted or moved, can't fetch it
                         return False
                     else:
                         # Rate limit, server error, or other HTTP error
@@ -69,7 +67,7 @@ async def fetch_section(
 async def fetch_all(sections: list[dict]):
     """Fetch JSON for all discovered sections."""
     os.makedirs(RAW_JSON_DIR, exist_ok=True)
-    semaphore = asyncio.Semaphore(15)  # Reduced to 15 to prevent GOV.UK API rate limits
+    semaphore = asyncio.Semaphore(15)  # GOV.UK rate limit respect
 
     async with aiohttp.ClientSession() as session:
         tasks = [

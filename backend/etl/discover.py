@@ -1,9 +1,5 @@
 """
 Discovery: Finds all HMRC manuals and their sections via the GOV.UK Content API.
-
-Phase 1: Paginate the Search API to get all 248 manual slugs.
-Phase 2: For each manual, hit the Content API to get the full section tree.
-Phase 3: Recursively walk child sections to find all leaf pages.
 """
 
 import asyncio

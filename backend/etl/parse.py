@@ -83,10 +83,8 @@ def parse_section(manual_slug: str, section_id: str) -> dict | None:
 
     clean_text = strip_html(body_html)
 
-    # ── Content quality filter ──
-    # Skip TOC stubs, boilerplate-only pages, and near-empty sections.
-    # These just contain "Contents", email addresses, or single cross-references
-    # and pollute search results with noise.
+    # Content quality filter
+    # Skip TOC stubs and boilerplate
     _lower = clean_text.lower().strip()
     if (
         len(clean_text.strip()) < 50
@@ -130,10 +128,9 @@ def parse_all(discovered_sections: list[dict]) -> list[dict]:
     """Parse all downloaded sections."""
     parsed = []
     
-    # Fix manual_title fallback by keeping a map of slug -> title
     manual_titles = {s["manual_slug"]: s["manual_title"] for s in discovered_sections}
 
-    # Multithread the file reading and parsing to bypass Windows sequential I/O bottlenecks
+    # Parallel parsing
     with concurrent.futures.ThreadPoolExecutor(max_workers=16) as executor:
         futures = [
             executor.submit(parse_section, section["manual_slug"], section["section_id"])

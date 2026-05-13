@@ -10,7 +10,7 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { CITATION_RE, CITATION_EXTRACT_RE, preprocessCitations, isCitationHref, extractCitationCode } from "./citations";
 
-// ─── Types ──────────────────────────────────────────────────────────
+// Types
 type Section = {
   section_id: string;
   title: string;
@@ -58,7 +58,7 @@ type Model = {
   provider: string;
 };
 
-// ─── Constants ──────────────────────────────────────────────────────
+// Constants
 const API_URL = "http://localhost:8000";
 
 const SUGGESTIONS = [
@@ -68,7 +68,7 @@ const SUGGESTIONS = [
   "What are the rules for PAYE settlement agreements?",
 ];
 
-// ─── Helpers ────────────────────────────────────────────────────────
+// Helpers
 let _msgIdCounter = 0;
 function genId() {
   return `msg-${Date.now()}-${++_msgIdCounter}`;
@@ -76,7 +76,7 @@ function genId() {
 
 
 
-// ─── Main Component ─────────────────────────────────────────────────
+// Main Component
 export default function Home() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [chatInput, setChatInput] = useState("");
@@ -202,7 +202,7 @@ export default function Home() {
     }
   };
 
-  // ─── Load HMRC page ───────────────────────────────────────────────
+  // Load HMRC manual page
   const loadSourcePage = useCallback(async (sectionId: string) => {
     setIsLoadingSource(true);
     setActiveSourceId(sectionId);
@@ -220,7 +220,7 @@ export default function Home() {
     }
   }, []);
 
-  // ─── Open sources panel ───────────────────────────────────────────
+  // Sources panel toggle
   const openSourcesPanel = useCallback((sources: SourceInfo[]) => {
     setActiveSources(sources);
     setActiveSourcePage(null);
@@ -228,7 +228,7 @@ export default function Home() {
     setSourcePanelOpen(true);
   }, []);
 
-  // ─── Chat ─────────────────────────────────────────────────────────
+  // Chat actions
   const submitChat = useCallback(async (query: string, history: Message[]) => {
     if (!query.trim() || isChatting) return;
     setChatInput("");
@@ -346,7 +346,7 @@ export default function Home() {
     submitChat(chatInput, messages);
   };
 
-  // ─── Regenerate last response ─────────────────────────────────────
+  // Regenerate response
   const regenerate = useCallback((msgId: string) => {
     setMessages((prev) => {
       // Find this assistant message and the user message before it
@@ -357,38 +357,33 @@ export default function Home() {
 
       // Remove the last assistant message, re-send
       const history = prev.slice(0, idx - 1);
-      // We need to trigger submitChat outside setState
       setTimeout(() => submitChat(userMsg.content, history), 0);
       return prev.slice(0, idx - 1);
     });
   }, [submitChat]);
 
-  // ─── Copy ─────────────────────────────────────────────────────────
+  // Copy to clipboard
   const copyMessage = useCallback((msgId: string, content: string) => {
     navigator.clipboard.writeText(content);
     setCopiedMsgId(msgId);
     setTimeout(() => setCopiedMsgId(null), 2000);
   }, []);
 
-  // ─── Model change ─────────────────────────────────────────────────
+  // Model change handler
   const handleModelChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const m = e.target.value;
     setSelectedModel(m);
     localStorage.setItem("rag_model", m);
   };
 
-  // ─── Markdown renderer with citation support ──────────────────────
+  // Markdown renderer with citation support
   const renderContent = useCallback((content: string) => {
     const processed = preprocessCitations(content);
     return (
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         urlTransform={(url) => {
-          // Preserve cite: URLs — react-markdown's default sanitizer strips
-          // unknown protocols, which breaks our citation buttons
           if (url.startsWith("cite:")) return url;
-          // For everything else, use default sanitization (strip javascript: etc.)
-          // by returning the URL as-is (react-markdown handles it)
           return url;
         }}
         components={{
@@ -442,11 +437,11 @@ export default function Home() {
     );
   }, [loadSourcePage]);
 
-  // ─── Render ───────────────────────────────────────────────────────
+  // Main Render
   return (
     <div className="flex h-screen overflow-hidden bg-background">
 
-      {/* ── LEFT: History Panel ── */}
+      {/* History Panel */}
       {historyOpen && (
         <aside className="w-64 flex-shrink-0 border-r border-border flex flex-col bg-card/20 animate-slide-in-left">
           <div className="p-4 border-b border-border flex items-center justify-between">
@@ -500,7 +495,7 @@ export default function Home() {
         </aside>
       )}
 
-      {/* ── CENTER: Chat ── */}
+      {/* Chat View */}
       <main className="flex-1 flex flex-col min-w-0">
 
         {/* Top bar */}
@@ -551,7 +546,7 @@ export default function Home() {
         {/* Messages area */}
         <div className="flex-1 overflow-y-auto">
           {messages.length === 0 ? (
-            /* ── Empty state ── */
+            {/* Empty state */}
             <div className="flex flex-col items-center justify-center h-full px-6 animate-fade-in">
               <div className="mb-8 text-center">
                 <h2 className="text-3xl font-bold text-foreground mb-2">
@@ -579,19 +574,19 @@ export default function Home() {
               </div>
             </div>
           ) : (
-            /* ── Message list ── */
+            {/* Message list */}
             <div className="max-w-3xl mx-auto px-5 py-6 space-y-8">
               {messages.map((msg) => (
                 <div key={msg.id} className="animate-fade-in">
                   {msg.role === "user" ? (
-                    /* User message */
+                    {/* User message */}
                     <div className="flex justify-end">
                       <div className="bg-primary/12 border border-primary/15 text-foreground px-5 py-3 rounded-2xl rounded-tr-md max-w-[80%]">
                         <p className="text-[15px] leading-relaxed whitespace-pre-wrap">{msg.content}</p>
                       </div>
                     </div>
                   ) : (
-                    /* Assistant message */
+                    {/* Assistant message */}
                     <div className="space-y-3">
                       {/* Avatar row */}
                       <div className="flex items-center gap-2">
@@ -721,7 +716,7 @@ export default function Home() {
         </div>
       </main>
 
-      {/* ── RIGHT: Sources Panel ── */}
+      {/* Sources Panel */}
       {sourcePanelOpen && (
         <aside className="w-[420px] flex-shrink-0 border-l border-border flex flex-col bg-card/50 animate-slide-in-right">
           {/* Header */}
@@ -758,7 +753,7 @@ export default function Home() {
                 <Loader2 className="text-primary animate-spin" size={24} />
               </div>
             ) : activeSourcePage ? (
-              /* ── Full document view ── */
+              {/* Full document view */}
               <div className="p-5 animate-fade-in">
                 <div className="mb-5 pb-4 border-b border-border">
                   <div className="text-xs text-muted-foreground/70 flex items-center gap-1.5 mb-2">
@@ -839,7 +834,7 @@ export default function Home() {
         </aside>
       )}
 
-      {/* ── RIGHT (OUTER): Search Panel ── */}
+      {/* Search Panel */}
       {searchOpen && (
         <aside className="w-80 flex-shrink-0 border-l border-border flex flex-col bg-card/40 animate-slide-in-right">
           {/* Header */}

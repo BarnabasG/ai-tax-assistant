@@ -126,9 +126,6 @@ async def manual_tree(manual: str):
 
 @app.get("/models")
 async def list_models():
-    import os
-    models = [
-        {"id": "qwen3.5:9b", "name": "Qwen3.5 9B (Local)", "provider": "local"},
-        {"id": "gpt-oss:120b-cloud", "name": "GPT-OSS 120B (Cloud)", "provider": "cloud"},
-    ]
+    from llm import router
+    models = await router.get_available_models()
     return {"models": models}

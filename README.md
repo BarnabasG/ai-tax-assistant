@@ -1,65 +1,87 @@
-# HMRC RAG Assistant - Setup & Porting Guide
+# HMRC RAG Assistant
 
-This project is a high-performance RAG (Retrieval-Augmented Generation) system for HMRC tax manuals. This guide explains how to set it up on a new machine.
+A high-performance Retrieval-Augmented Generation (RAG) system for querying HMRC (UK Tax) internal manuals using local AI models.
 
-## Prerequisites
+## Features
+- **Local AI**: Fully private and offline inference using Ollama.
+- **Hybrid Search**: Combines Dense Vector Search and BM25 Sparse Search for highly accurate retrieval.
+- **Live HMRC Data**: Scrapes and indexes official HMRC tax manuals directly from GOV.UK.
+- **Auto-Discovery**: Automatically detects models installed in your local Ollama instance.
 
-Ensure you have the following installed:
-- **Node.js** (v18+) & **npm**
-- **Python** (3.12+)
-- **Docker** (for the vector database)
-- **Ollama** (for local models)
-- **uv** (Recommended Python package manager: `pip install uv`)
+---
 
-## Quick Start
+## Quick Start Setup
 
-### 1. Clone & Infrastructure
+### 1. Prerequisites
+Ensure you have the following installed on your machine:
+- **[Docker Desktop](https://www.docker.com/products/docker-desktop/)**: Required to run the Qdrant vector database.
+- **[Ollama](https://ollama.com/)**: Required for running the AI models locally.
+- **Node.js (v18+) & npm**: For the frontend.
+- **Python (3.12+)**: For the backend.
+- **uv**: (Highly Recommended) Fast Python package manager. `pip install uv`
+
+### 2. Start the Database
+The vector database runs in a Docker container. Ensure Docker Desktop is open, then run:
 ```bash
-git clone https://github.com/BarnabasG/ai-tax-assistant.git
-cd ai-tax-assistant
-docker-compose up -d  # Starts Qdrant Vector Database
+docker-compose up -d
 ```
 
-### 2. Backend Configuration
-Navigate to the `backend` folder and create a `.env` file:
+### 3. Install AI Models
+Pull your preferred model using Ollama. The app will automatically detect it:
+```bash
+ollama pull qwen3.5:9b
+```
+
+### 4. Setup the Backend
 ```bash
 cd backend
-touch .env
+cp .env.example .env
 ```
-Add the following configuration (see `.env.example` for reference):
-```env
-OLLAMA_URL=http://localhost:11434
-GEMINI_API_KEY=your_key_here  # Optional: for cloud models
-DEFAULT_CHAT_MODEL=qwen3.5:9b
-QDRANT_URL=http://localhost:6333
+*(Optional: Edit `.env` to configure a remote Ollama server if you have one).*
+
+### 5. Ingest Data (Pick one method)
+You need to populate the database with the HMRC manuals.
+
+**Method A: Restore from Snapshot (Fastest)**
+If a pre-computed `hmrc_data.snapshot` file is provided, place it in the `backend/data/` folder and run:
+```bash
+make import-data
 ```
 
-### 3. Data Ingestion
-The system needs to fetch and index HMRC manuals.
+**Method B: Build from Scratch**
+Run the automated ETL pipeline to download and index everything from GOV.UK. 
+*Note: This requires Ollama to be running and an embedding model (default: `nomic-embed-text`) to be pulled beforehand.*
 ```bash
-# From the backend directory
-uv sync                          # Install dependencies
-uv run python -m etl.discover    # Find manuals
-uv run python -m etl.fetch       # Download content
-uv run python -m etl.ingest      # Embed and index into Qdrant
+make ingest
 ```
 
-### 4. Running the App
-Use the provided Makefile from the root directory:
+### 6. Run the Application
+Open two terminal windows in the project root:
+
+**Terminal 1 (Backend API):**
 ```bash
-# In one terminal (Backend)
 make api
+```
 
-# In another terminal (Frontend)
+**Terminal 2 (Frontend UI):**
+```bash
 make frontend
 ```
 
-## Customizing Models
-- **Local Models**: Install any model via Ollama (e.g., `ollama run qwen3.5:9b`). Update `backend/api.py` in the `list_models` function to display them in the UI.
-- **Cloud Models**: Add your `GEMINI_API_KEY` to `.env`. The system is pre-configured to route specific model IDs to the Gemini API in `backend/llm.py`.
+Navigate to `http://localhost:3000` in your browser.
 
-## Project Structure
-- `/frontend`: Next.js application with a modernized chat interface.
-- `/backend`: FastAPI service handling RAG logic, streaming, and embeddings.
-- `/backend/etl`: Scripts for discovery, fetching, and indexing HMRC data.
-- `/backend/data`: Local storage for raw JSON and processed text.
+---
+
+## Command Reference
+
+A `Makefile` is included to simplify common tasks. Run these from the project root:
+
+| Command | Description |
+|---|---|
+| `make frontend` | Starts the Next.js development server |
+| `make api` | Starts the FastAPI backend server |
+| `make ingest` | Runs the full ETL pipeline (Discover, Fetch, Parse, Embed) |
+| `make export-data` | Exports the database to `backend/data/hmrc_data.snapshot` for easy sharing |
+| `make import-data` | Restores the database from a `.snapshot` file |
+| `make update` | Checks for new HMRC manual updates and re-indexes only changes |
+| `make clean` | **WARNING:** Wipes the entire vector database |
