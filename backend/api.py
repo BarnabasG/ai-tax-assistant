@@ -127,5 +127,4 @@ async def manual_tree(manual: str):
 @app.get("/models")
 async def list_models():
     from llm import router
-    models = await router.get_available_models()
-    return {"models": models}
+    return await router.get_available_models()

@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import {
   Search, Book, ChevronRight, Send, Bot, FileText,
   Loader2, Copy, RefreshCw, BookOpen, X, Check, Plus, MessageSquare,
-  PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen, ChevronDown
+  PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen, ChevronDown, Info
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -43,6 +43,9 @@ type Message = {
   content: string;
   isStreaming?: boolean;
   sources?: SourceInfo[];
+  modelUsed?: string;
+  timeTakenMs?: number;
+  tokensUsed?: number;
 };
 
 type ChatSession = {
@@ -108,9 +111,12 @@ export default function Home() {
   // Sync messages into the current session
   useEffect(() => {
     if (currentSessionId && messages.length > 0) {
-      setSessions(prev => prev.map(s => 
-        s.id === currentSessionId ? { ...s, messages, updatedAt: Date.now() } : s
-      ));
+      const timer = setTimeout(() => {
+        setSessions(prev => prev.map(s => 
+          s.id === currentSessionId ? { ...s, messages, updatedAt: Date.now() } : s
+        ));
+      }, 500);
+      return () => clearTimeout(timer);
     }
   }, [messages, currentSessionId]);
 
@@ -138,7 +144,9 @@ export default function Home() {
   }, [currentSessionId, startNewChat]);
 
   const [models, setModels] = useState<Model[]>([]);
-  const [selectedModel, setSelectedModel] = useState("qwen3:30b-a3b");
+  const [selectedModel, setSelectedModel] = useState("qwen3.5:9b");
+  const [ollamaRunning, setOllamaRunning] = useState(true);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
 
   // Search panel
   const [searchOpen, setSearchOpen] = useState(true);
@@ -159,11 +167,12 @@ export default function Home() {
   const chatEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // ─── Load models on mount ─────────────────────────────────────────
+  // Load models on mount
   useEffect(() => {
     fetch(`${API_URL}/models`)
       .then((res) => res.json())
       .then((data) => {
+        setOllamaRunning(data.ollama_running ?? true);
         if (data.models?.length) {
           setModels(data.models);
           const saved = localStorage.getItem("rag_model");
@@ -234,6 +243,9 @@ export default function Home() {
     setChatInput("");
     setIsChatting(true);
 
+    const startTime = Date.now();
+    const modelToUse = selectedModel;
+
     const userMsg: Message = { id: genId(), role: "user", content: query };
     const assistantMsg: Message = { id: genId(), role: "assistant", content: "", isStreaming: true };
 
@@ -303,6 +315,9 @@ export default function Home() {
 
         if (isDone) {
           sources = finalSources;
+          const timeTakenMs = Date.now() - startTime;
+          const tokensUsed = Math.ceil(fullResponse.length / 4);
+
           setMessages((prev) => {
             const updated = [...prev];
             updated[updated.length - 1] = {
@@ -310,6 +325,9 @@ export default function Home() {
               content: fullResponse,
               isStreaming: false,
               sources,
+              modelUsed: modelToUse,
+              timeTakenMs,
+              tokensUsed,
             };
             return updated;
           });
@@ -369,9 +387,15 @@ export default function Home() {
     setTimeout(() => setCopiedMsgId(null), 2000);
   }, []);
 
+  const [showCloudWarning, setShowCloudWarning] = useState(false);
+
   // Model change handler
-  const handleModelChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const m = e.target.value;
+  const handleModelChange = (m: string) => {
+    const selectedObj = models.find(x => x.id === m);
+    if (selectedObj?.provider === "cloud" && !localStorage.getItem("cloud_warning_shown")) {
+      setShowCloudWarning(true);
+      localStorage.setItem("cloud_warning_shown", "true");
+    }
     setSelectedModel(m);
     localStorage.setItem("rag_model", m);
   };
@@ -496,7 +520,36 @@ export default function Home() {
       )}
 
       {/* Chat View */}
-      <main className="flex-1 flex flex-col min-w-0">
+      <main className="flex-1 flex flex-col min-w-0 relative">
+
+        {/* Cloud Warning Modal */}
+        {showCloudWarning && (
+          <div className="absolute inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm animate-fade-in">
+            <div className="bg-card border border-border p-6 rounded-2xl max-w-sm w-full shadow-2xl mx-4">
+              <h3 className="text-lg font-bold text-foreground mb-2">Cloud Model Selected</h3>
+              <p className="text-sm text-muted-foreground mb-6 leading-relaxed">
+                You selected a cloud model. These require a free Ollama account to work properly. 
+                Please ensure you have signed up at <a href="https://ollama.com" target="_blank" rel="noreferrer" className="text-primary hover:underline">ollama.com</a>.
+              </p>
+              <div className="flex justify-end">
+                <button 
+                  onClick={() => setShowCloudWarning(false)}
+                  className="bg-primary text-primary-foreground px-4 py-2 rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors"
+                >
+                  Got it
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Ollama Offline Banner */}
+        {!ollamaRunning && (
+          <div className="bg-destructive/10 text-destructive text-xs font-medium py-1.5 px-4 text-center border-b border-destructive/20 flex items-center justify-center gap-2">
+            <Bot size={14} />
+            Ollama is not currently running. Local models will not respond.
+          </div>
+        )}
 
         {/* Top bar */}
         <header className="flex items-center justify-between px-5 py-2.5 border-b border-border bg-card/30 flex-shrink-0">
@@ -516,19 +569,53 @@ export default function Home() {
           </div>
 
           <div className="flex items-center gap-3">
-            <div className="relative">
-              <select
-                value={selectedModel}
-                onChange={handleModelChange}
-                className="appearance-none bg-secondary/60 text-xs text-muted-foreground border border-border rounded-lg pl-3 pr-7 py-1.5 cursor-pointer hover:bg-secondary transition-colors focus:outline-none focus:ring-1 focus:ring-primary/40"
+            <div 
+              className="relative outline-none" 
+              tabIndex={0} 
+              onBlur={(e) => {
+                if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+                  setDropdownOpen(false);
+                }
+              }}
+            >
+              <button
+                type="button"
+                onClick={() => setDropdownOpen(!dropdownOpen)}
+                className="flex items-center justify-between w-52 bg-secondary/60 text-xs text-muted-foreground border border-border rounded-lg pl-3 pr-3 py-1.5 cursor-pointer hover:bg-secondary transition-colors focus:outline-none focus:ring-1 focus:ring-primary/40"
               >
-                {models.map((m) => (
-                  <option key={m.id} value={m.id} className="bg-card text-foreground">
-                    {m.name}
-                  </option>
-                ))}
-              </select>
-              <ChevronDown size={12} className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+                <span className="truncate pr-2 text-foreground font-medium">
+                  {models.find(m => m.id === selectedModel)?.name || "Select Model"}
+                </span>
+                <div className="flex items-center gap-1.5 flex-shrink-0 text-muted-foreground">
+                  {models.find(m => m.id === selectedModel)?.provider === 'cloud' && <span>☁️</span>}
+                  <ChevronDown size={12} className={`transition-transform ${dropdownOpen ? 'rotate-180' : ''}`} />
+                </div>
+              </button>
+              
+              {dropdownOpen && (
+                <div className="absolute top-full right-0 mt-1.5 w-56 bg-card border border-border rounded-xl shadow-xl overflow-hidden z-50 animate-in fade-in zoom-in-95 duration-100">
+                  <div className="max-h-60 overflow-y-auto p-1">
+                    {models.map((m) => (
+                      <button
+                        key={m.id}
+                        type="button"
+                        onClick={() => {
+                          handleModelChange(m.id);
+                          setDropdownOpen(false);
+                        }}
+                        className={`w-full flex items-center justify-between px-3 py-2 text-xs text-left rounded-md transition-colors ${
+                          selectedModel === m.id 
+                            ? 'bg-primary/10 text-primary font-medium' 
+                            : 'text-foreground hover:bg-secondary/80'
+                        }`}
+                      >
+                        <span className="truncate">{m.name}</span>
+                        {m.provider === 'cloud' && <span className="flex-shrink-0 ml-2 opacity-80">☁️</span>}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
             
             {!searchOpen && (
@@ -546,7 +633,6 @@ export default function Home() {
         {/* Messages area */}
         <div className="flex-1 overflow-y-auto">
           {messages.length === 0 ? (
-            {/* Empty state */}
             <div className="flex flex-col items-center justify-center h-full px-6 animate-fade-in">
               <div className="mb-8 text-center">
                 <h2 className="text-3xl font-bold text-foreground mb-2">
@@ -574,19 +660,16 @@ export default function Home() {
               </div>
             </div>
           ) : (
-            {/* Message list */}
             <div className="max-w-3xl mx-auto px-5 py-6 space-y-8">
               {messages.map((msg) => (
                 <div key={msg.id} className="animate-fade-in">
                   {msg.role === "user" ? (
-                    {/* User message */}
                     <div className="flex justify-end">
                       <div className="bg-primary/12 border border-primary/15 text-foreground px-5 py-3 rounded-2xl rounded-tr-md max-w-[80%]">
                         <p className="text-[15px] leading-relaxed whitespace-pre-wrap">{msg.content}</p>
                       </div>
                     </div>
                   ) : (
-                    {/* Assistant message */}
                     <div className="space-y-3">
                       {/* Avatar row */}
                       <div className="flex items-center gap-2">
@@ -628,6 +711,20 @@ export default function Home() {
                               {/* Action bar */}
                               {!msg.isStreaming && msg.content && (
                                 <div className="flex items-center gap-1 mt-3 pt-2">
+                                  {/* Info */}
+                                  <div className="relative group flex items-center justify-center">
+                                    <button className="action-btn cursor-default" title="Generation info" type="button">
+                                      <Info size={15} />
+                                    </button>
+                                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 bg-card border border-border p-3 rounded-lg shadow-xl text-xs text-muted-foreground opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-50 pointer-events-none">
+                                      <div className="space-y-1.5">
+                                        <div className="flex justify-between"><span>Model:</span> <span className="text-foreground font-medium truncate ml-2">{msg.modelUsed || "Unknown"}</span></div>
+                                        <div className="flex justify-between"><span>Time:</span> <span className="text-foreground font-medium">{msg.timeTakenMs ? (msg.timeTakenMs / 1000).toFixed(1) + "s" : "-"}</span></div>
+                                        <div className="flex justify-between"><span>Tokens:</span> <span className="text-foreground font-medium">{msg.tokensUsed ? "~" + msg.tokensUsed : "-"}</span></div>
+                                      </div>
+                                    </div>
+                                  </div>
+
                                   {/* Copy */}
                                   <button
                                     onClick={() => copyMessage(msg.id, displayContent)}
@@ -753,7 +850,6 @@ export default function Home() {
                 <Loader2 className="text-primary animate-spin" size={24} />
               </div>
             ) : activeSourcePage ? (
-              {/* Full document view */}
               <div className="p-5 animate-fade-in">
                 <div className="mb-5 pb-4 border-b border-border">
                   <div className="text-xs text-muted-foreground/70 flex items-center gap-1.5 mb-2">

@@ -30,21 +30,23 @@ class LLMRouter:
         else:
             return "ollama_local", model_string
 
-    async def get_available_models(self) -> list[dict]:
+    async def get_available_models(self) -> dict:
         """Fetches available models from Ollama."""
         models = []
+        ollama_running = False
         
         # 1. Local Ollama Models
         try:
             async with aiohttp.ClientSession() as session:
                 async with session.get(f"{OLLAMA_URL}/api/tags", timeout=2) as resp:
                     if resp.status == 200:
+                        ollama_running = True
                         data = await resp.json()
                         for m in data.get("models", []):
                             name = m["name"]
                             models.append({
                                 "id": name,
-                                "name": f"{name} (Local)",
+                                "name": name,
                                 "provider": "local"
                             })
         except Exception:
@@ -67,11 +69,40 @@ class LLMRouter:
             except Exception:
                 pass
                 
-        # Fallback if Ollama is unreachable
-        if not models:
-            models.append({"id": "qwen3.5:9b", "name": "Qwen3.5 9B (Local Fallback)", "provider": "local"})
+        # 3. Cloud Models & Fallback
+        if ollama_running:
+            cloud_model_ids = [
+                "gemma4:31b-cloud",
+                "gpt-oss:20b-cloud",
+                "gpt-oss:120b-cloud",
+            ]
+            for cid in cloud_model_ids:
+                # Create a human readable name from the ID
+                # E.g. "kimi-k2.6:cloud" -> "Kimi K2.6"
+                base_name = cid.split(":")[0].replace("-", " ").title()
+                if "Gpt" in base_name:
+                    base_name = base_name.replace("Gpt", "GPT").replace("Oss", "OSS")
+                
+                # Special cases for formatting
+                if cid == "kimi-k2.6:cloud": name = "Kimi K2.6"
+                elif cid == "gemma4:31b-cloud": name = "Gemma 4 31B"
+                elif cid == "gpt-oss:20b-cloud": name = "GPT-OSS 20B"
+                elif cid == "gpt-oss:120b-cloud": name = "GPT-OSS 120B"
+                elif cid == "deepseek-v4-flash:cloud": name = "DeepSeek v4 Flash"
+                elif cid == "glm-4.6:cloud": name = "GLM 4.6"
+                else: name = base_name
+
+                models.append({
+                    "id": cid,
+                    "name": name,
+                    "provider": "cloud"
+                })
+        else:
+            # Fallback if Ollama is unreachable
+            if not models:
+                models.append({"id": "qwen3.5:9b", "name": "Qwen3.5 9B", "provider": "local"})
             
-        return models
+        return {"models": models, "ollama_running": ollama_running}
 
     async def _stream_ollama(self, url: str, model: str, messages: list[dict]) -> AsyncGenerator[str, None]:
         payload = {"model": model, "messages": messages, "stream": True}
