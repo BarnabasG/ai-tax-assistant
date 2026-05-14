@@ -47,10 +47,11 @@ async def discover_all_manuals(session: aiohttp.ClientSession) -> list[dict]:
             break
 
         for r in results:
-            slug = r["link"].replace("/hmrc-internal-manuals/", "")
+            link = r.get("link", "")
+            slug = link.replace("/hmrc-internal-manuals/", "").strip("/")
             
-            # Skip test manuals
-            if slug in BLACKLIST or "test" in slug.lower() or "dummy" in slug.lower():
+            # Skip verified test/placeholder manuals
+            if slug in BLACKLIST:
                 continue
                 
             manuals.append({
@@ -106,12 +107,16 @@ async def get_manual_sections(
                 "updated_at": data.get("public_updated_at", ""),
             })
 
-        # Walk child sections recursively
+        # Walk child sections in parallel
+        tasks = []
         for group in details.get("child_section_groups", []):
             for child in group.get("child_sections", []):
                 child_path = child.get("base_path", "")
                 if child_path:
-                    await walk(child_path)
+                    tasks.append(walk(child_path))
+        
+        if tasks:
+            await asyncio.gather(*tasks)
 
     await walk(f"/hmrc-internal-manuals/{manual_slug}")
     return sections
@@ -133,18 +138,25 @@ async def discover_all(force: bool = False) -> list[dict]:
     all_sections = []
     semaphore = asyncio.Semaphore(20)  # Respect GOV.UK rate limits
 
-    async with aiohttp.ClientSession() as session:
+    timeout = aiohttp.ClientTimeout(total=30)
+    async with aiohttp.ClientSession(timeout=timeout) as session:
         manuals = await discover_all_manuals(session)
 
         pbar = tqdm(total=len(manuals), desc="Walking Manual Trees", unit="manual")
 
-        for manual in manuals:
+        async def process_manual(manual):
+            pbar.set_postfix(current=manual["slug"][:20])
             sections = await get_manual_sections(
                 session, manual["slug"], manual["title"], semaphore
             )
-            all_sections.extend(sections)
             pbar.update(1)
-            pbar.set_postfix(sections=len(all_sections))
+            return sections
+
+        tasks = [process_manual(m) for m in manuals]
+        results = await asyncio.gather(*tasks)
+        
+        for sections in results:
+            all_sections.extend(sections)
 
         pbar.close()
 
