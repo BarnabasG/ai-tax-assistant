@@ -10,14 +10,13 @@ import sys
 if sys.platform == "win32":
     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
-from etl import discover, fetch, parse
-from embed import process_pipeline
+from src.etl import discover, fetch, parse
+from src.embed import process_pipeline
 
-DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "data")
+DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "data")
 STATE_FILE = os.path.join(DATA_DIR, "ingest_state.json")
 
-# Module path setup
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# Module path setup (removed in favor of project scripts)
 
 
 def load_state() -> dict:
@@ -70,5 +69,8 @@ async def run_pipeline():
     print("\nIngestion complete!")
 
 
-if __name__ == "__main__":
+def main():
     asyncio.run(run_pipeline())
+
+if __name__ == "__main__":
+    main()

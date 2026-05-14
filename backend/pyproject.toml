@@ -18,6 +18,10 @@ dependencies = [
     "requests>=2.31.0",
 ]
 
+[project.scripts]
+hmrc-api = "src.api:main"
+hmrc-ingest = "src.etl.ingest:main"
+
 [dependency-groups]
 dev = [
     "httpx>=0.28.1",

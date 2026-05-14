@@ -1,6 +1,6 @@
 import os
 from dotenv import load_dotenv
-from qdrant_client import QdrantClient, models
+from qdrant_client import AsyncQdrantClient, models
 
 load_dotenv()
 
@@ -13,52 +13,73 @@ class QdrantStore:
     """Singleton wrapper for the Qdrant vector database."""
 
     def __init__(self):
-        self.client: QdrantClient | None = None
+        self.client: AsyncQdrantClient | None = None
 
     def connect(self):
         if not self.client:
-            self.client = QdrantClient(url=QDRANT_URL)
+            self.client = AsyncQdrantClient(url=QDRANT_URL)
 
     async def ensure_collection(self):
-        """Creates the collection with dense + sparse named vectors if it doesn't exist."""
+        """Creates the collection and ensures indexes exist."""
         self.connect()
-        collections = self.client.get_collections().collections
-        if any(c.name == COLLECTION for c in collections):
-            return
+        collections_resp = await self.client.get_collections()
+        collections = collections_resp.collections
+        
+        if not any(c.name == COLLECTION for c in collections):
+            await self.client.create_collection(
+                collection_name=COLLECTION,
+                vectors_config={
+                    "dense": models.VectorParams(
+                        size=DENSE_DIM,
+                        distance=models.Distance.COSINE,
+                    )
+                },
+                sparse_vectors_config={
+                    "bm25": models.SparseVectorParams(
+                        modifier=models.Modifier.IDF,
+                    )
+                },
+            )
+            print(f"Created Qdrant collection '{COLLECTION}'.")
 
-        self.client.create_collection(
-            collection_name=COLLECTION,
-            vectors_config={
-                "dense": models.VectorParams(
-                    size=DENSE_DIM,
-                    distance=models.Distance.COSINE,
-                )
-            },
-            sparse_vectors_config={
-                "bm25": models.SparseVectorParams(
-                    modifier=models.Modifier.IDF,
-                )
-            },
-        )
-        # Payload indexes for fast filtering
-        self.client.create_payload_index(
-            collection_name=COLLECTION,
-            field_name="section_id",
-            field_schema=models.PayloadSchemaType.KEYWORD,
-        )
-        self.client.create_payload_index(
-            collection_name=COLLECTION,
-            field_name="manual_slug",
-            field_schema=models.PayloadSchemaType.KEYWORD,
-        )
-        print(f"Created Qdrant collection '{COLLECTION}' with dense + BM25 vectors.")
+        # Ensure payload indexes exist
+        info = await self.client.get_collection(COLLECTION)
+        existing_indexes = info.payload_schema.keys()
 
-    def upsert_batch(self, points: list[models.PointStruct]):
+        if "section_id" not in existing_indexes:
+            await self.client.create_payload_index(
+                collection_name=COLLECTION,
+                field_name="section_id",
+                field_schema=models.PayloadSchemaType.KEYWORD,
+            )
+        
+        if "manual_slug" not in existing_indexes:
+            await self.client.create_payload_index(
+                collection_name=COLLECTION,
+                field_name="manual_slug",
+                field_schema=models.PayloadSchemaType.KEYWORD,
+            )
+            
+        if "title" not in existing_indexes:
+            await self.client.create_payload_index(
+                collection_name=COLLECTION,
+                field_name="title",
+                field_schema=models.TextIndexParams(
+                    type="text",
+                    tokenizer=models.TokenizerType.WORD,
+                    min_token_len=2,
+                    max_token_len=15,
+                    lowercase=True,
+                ),
+            )
+            print(f"Created 'title' text index for collection '{COLLECTION}'.")
+
+    async def upsert_batch(self, points: list[models.PointStruct]):
         """Upsert a batch of points. Idempotent by ID."""
         self.connect()
-        self.client.upsert(collection_name=COLLECTION, points=points)
+        await self.client.upsert(collection_name=COLLECTION, points=points)
 
-    def hybrid_search(
+    async def hybrid_search(
         self,
         dense_vector: list[float],
         sparse_vector: models.SparseVector,
@@ -79,7 +100,7 @@ class QdrantStore:
                 ]
             )
 
-        results = self.client.query_points(
+        results = await self.client.query_points(
             collection_name=COLLECTION,
             prefetch=[
                 models.Prefetch(
@@ -101,10 +122,10 @@ class QdrantStore:
         )
         return results.points
 
-    def search_by_title(self, query: str, limit: int = 10) -> list:
+    async def search_by_title(self, query: str, limit: int = 10) -> list:
         """Scroll through points matching a title substring (for autocomplete)."""
         self.connect()
-        results = self.client.scroll(
+        results = await self.client.scroll(
             collection_name=COLLECTION,
             scroll_filter=models.Filter(
                 must=[
@@ -119,10 +140,10 @@ class QdrantStore:
         )
         return results[0]  # (points, next_offset)
 
-    def get_by_section_id(self, section_id: str) -> list:
+    async def get_by_section_id(self, section_id: str) -> list:
         """Get all chunks for a given section_id."""
         self.connect()
-        results = self.client.scroll(
+        results = await self.client.scroll(
             collection_name=COLLECTION,
             scroll_filter=models.Filter(
                 must=[
@@ -137,10 +158,10 @@ class QdrantStore:
         )
         return results[0]
 
-    def get_sections_for_manual(self, manual_slug: str) -> list:
+    async def get_sections_for_manual(self, manual_slug: str) -> list:
         """Get all unique sections for a manual (for the tree navigator)."""
         self.connect()
-        results = self.client.scroll(
+        results = await self.client.scroll(
             collection_name=COLLECTION,
             scroll_filter=models.Filter(
                 must=[
@@ -155,17 +176,17 @@ class QdrantStore:
         )
         return results[0]
 
-    def count(self) -> int:
+    async def count(self) -> int:
         """Total points in the collection."""
         self.connect()
-        info = self.client.get_collection(COLLECTION)
+        info = await self.client.get_collection(COLLECTION)
         return info.points_count
 
     async def wipe(self):
         """Delete and recreate the collection."""
         self.connect()
         try:
-            self.client.delete_collection(COLLECTION)
+            await self.client.delete_collection(COLLECTION)
             print(f"Deleted collection '{COLLECTION}'.")
         except Exception:
             pass

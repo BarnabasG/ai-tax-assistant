@@ -86,19 +86,21 @@ export default function Home() {
   const [isChatting, setIsChatting] = useState(false);
 
   // History state
-  const [sessions, setSessions] = useState<ChatSession[]>(() => {
-    if (typeof window !== "undefined") {
-      try {
-        const saved = localStorage.getItem("hmrc-rag-history");
-        if (saved) return JSON.parse(saved);
-      } catch (e) {
-        console.error("Failed to parse history", e);
-      }
-    }
-    return [];
-  });
+  const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const [historyOpen, setHistoryOpen] = useState(true);
+  const [mounted, setMounted] = useState(false);
+
+  // Load history from local storage on mount
+  useEffect(() => {
+    setMounted(true);
+    try {
+      const saved = localStorage.getItem("hmrc-rag-history");
+      if (saved) setSessions(JSON.parse(saved));
+    } catch (e) {
+      console.error("Failed to parse history", e);
+    }
+  }, []);
 
   // Save history to local storage when it changes
   useEffect(() => {
@@ -218,24 +220,40 @@ export default function Home() {
   const chatEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Load models on mount
+  // Load models on mount and poll if offline
   useEffect(() => {
-    fetch(`${API_URL}/models`)
-      .then((res) => res.json())
-      .then((data) => {
-        setOllamaRunning(data.ollama_running ?? true);
-        if (data.models?.length) {
-          setModels(data.models);
-          const saved = localStorage.getItem("rag_model");
-          if (saved && data.models.find((m: Model) => m.id === saved)) {
-            setSelectedModel(saved);
-          } else {
-            setSelectedModel(data.models[0].id);
+    const loadModels = () => {
+      fetch(`${API_URL}/models`)
+        .then((res) => res.json())
+        .then((data) => {
+          setOllamaRunning(data.ollama_running ?? true);
+          if (data.models?.length) {
+            setModels(data.models);
+            // Only set selected model if not already set or if current selection is invalid
+            const saved = localStorage.getItem("rag_model");
+            if (!selectedModel) {
+              if (saved && data.models.find((m: Model) => m.id === saved)) {
+                setSelectedModel(saved);
+              } else {
+                setSelectedModel(data.models[0].id);
+              }
+            }
           }
-        }
-      })
-      .catch(console.error);
-  }, []);
+        })
+        .catch(console.error);
+    };
+
+    loadModels();
+    
+    // Poll every 10 seconds if Ollama is not running to auto-unlock
+    const interval = setInterval(() => {
+      if (!ollamaRunning) {
+        loadModels();
+      }
+    }, 10000);
+
+    return () => clearInterval(interval);
+  }, [ollamaRunning, selectedModel]);
 
   // Scroll chat to bottom
   useEffect(() => {
@@ -567,7 +585,7 @@ export default function Home() {
             </button>
           </div>
           <div className="flex-1 overflow-y-auto p-2 space-y-1">
-            {sessions.map((s) => (
+            {mounted && sessions.map((s) => (
               <div
                 key={s.id}
                 onClick={() => loadSession(s.id)}
@@ -586,7 +604,7 @@ export default function Home() {
                 </button>
               </div>
             ))}
-            {sessions.length === 0 && (
+            {mounted && sessions.length === 0 && (
               <div className="text-center text-xs text-muted-foreground/50 mt-8 px-4">
                 No past chats yet.
               </div>
@@ -624,7 +642,7 @@ export default function Home() {
         {!ollamaRunning && (
           <div className="bg-destructive/10 text-destructive text-xs font-medium py-1.5 px-4 text-center border-b border-destructive/20 flex items-center justify-center gap-2">
             <Bot size={14} />
-            Ollama is not currently running. Local models will not respond.
+            Ollama is not currently running. Run Ollama to chat with the assistant.
           </div>
         )}
 
@@ -661,13 +679,14 @@ export default function Home() {
               <button
                 type="button"
                 onClick={() => setDropdownOpen(!dropdownOpen)}
-                className="flex items-center justify-between w-52 bg-secondary/60 text-xs text-muted-foreground border border-border rounded-lg pl-3 pr-3 py-1.5 cursor-pointer hover:bg-secondary transition-colors focus:outline-none focus:ring-1 focus:ring-primary/40"
+                disabled={!ollamaRunning}
+                className={`flex items-center justify-between w-52 bg-secondary/60 text-xs text-muted-foreground border border-border rounded-lg pl-3 pr-3 py-1.5 transition-colors focus:outline-none focus:ring-1 focus:ring-primary/40 ${!ollamaRunning ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:bg-secondary'}`}
               >
                 <span className="truncate pr-2 text-foreground font-medium">
-                  {models.find(m => m.id === selectedModel)?.name || "Select Model"}
+                  {!ollamaRunning ? "No Models Available" : (models.find(m => m.id === selectedModel)?.name || "Select Model")}
                 </span>
                 <div className="flex items-center gap-1.5 flex-shrink-0 text-muted-foreground">
-                  {models.find(m => m.id === selectedModel)?.provider === 'cloud' && <span>☁️</span>}
+                  {ollamaRunning && models.find(m => m.id === selectedModel)?.provider === 'cloud' && <span>☁️</span>}
                   <ChevronDown size={12} className={`transition-transform ${dropdownOpen ? 'rotate-180' : ''}`} />
                 </div>
               </button>
@@ -675,7 +694,7 @@ export default function Home() {
               {dropdownOpen && (
                 <div className="absolute top-full right-0 mt-1.5 w-56 bg-card border border-border rounded-xl shadow-xl overflow-hidden z-50 animate-in fade-in zoom-in-95 duration-100">
                   <div className="max-h-60 overflow-y-auto p-1">
-                    {models.map((m, index) => {
+                    {ollamaRunning && models.map((m, index) => {
                       const showSeparator = index > 0 && m.provider === 'cloud' && models[index - 1].provider !== 'cloud';
                       return (
                         <Fragment key={m.id}>
@@ -735,7 +754,8 @@ export default function Home() {
                       setChatInput(s);
                       setTimeout(() => submitChat(s, []), 0);
                     }}
-                    className="suggestion-chip text-left"
+                    disabled={!ollamaRunning}
+                    className="suggestion-chip text-left disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-card"
                   >
                     <ChevronRight size={14} className="inline mr-1.5 text-primary/50" />
                     {s}
@@ -880,13 +900,13 @@ export default function Home() {
               value={chatInput}
               onChange={(e) => setChatInput(e.target.value)}
               placeholder="Ask a tax question..."
-              className="w-full bg-card border border-border rounded-2xl pl-5 pr-14 py-3.5 text-[15px] focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/40 placeholder:text-muted-foreground/40 shadow-lg shadow-black/20 transition-all duration-200"
-              disabled={isChatting}
+              className="w-full bg-card border border-border rounded-2xl pl-5 pr-14 py-3.5 text-[15px] focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/40 placeholder:text-muted-foreground/40 shadow-lg shadow-black/20 transition-all duration-200 disabled:opacity-50 disabled:bg-secondary/20"
+              disabled={isChatting || !ollamaRunning}
             />
             <button
               type="submit"
-              disabled={!chatInput.trim() || isChatting}
-              className="absolute right-2 top-1/2 -translate-y-1/2 w-9 h-9 flex items-center justify-center rounded-xl bg-primary text-white disabled:opacity-30 hover:bg-primary/80 transition-all duration-150"
+              disabled={!chatInput.trim() || isChatting || !ollamaRunning}
+              className="absolute right-2 top-1/2 -translate-y-1/2 w-9 h-9 flex items-center justify-center rounded-xl bg-primary text-white disabled:opacity-30 disabled:bg-muted hover:bg-primary/80 transition-all duration-150"
             >
               {isChatting ? <Loader2 size={17} className="animate-spin" /> : <Send size={17} />}
             </button>
@@ -1061,7 +1081,8 @@ export default function Home() {
                 placeholder="e.g. VIT13500, fuel scale charges..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full bg-background border border-border rounded-lg pl-9 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 placeholder:text-muted-foreground/50"
+                className="w-full bg-background border border-border rounded-lg pl-9 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 placeholder:text-muted-foreground/50 disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={!ollamaRunning}
               />
               <Search className="absolute left-2.5 top-2.5 text-muted-foreground/50" size={15} />
               {isSearching && (

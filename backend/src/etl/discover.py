@@ -13,10 +13,15 @@ if sys.platform == "win32":
 import aiohttp
 from tqdm import tqdm
 
-DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "data")
+DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "data")
 DISCOVERY_CACHE = os.path.join(DATA_DIR, "discovery_cache.json")
 SEARCH_API = "https://www.gov.uk/api/search.json"
 CONTENT_API = "https://www.gov.uk/api/content"
+
+# Manuals that are just for testing or contain no real guidance
+BLACKLIST = {
+    "sharepoint-tax-manuals-test-site",
+}
 
 
 async def discover_all_manuals(session: aiohttp.ClientSession) -> list[dict]:
@@ -43,6 +48,11 @@ async def discover_all_manuals(session: aiohttp.ClientSession) -> list[dict]:
 
         for r in results:
             slug = r["link"].replace("/hmrc-internal-manuals/", "")
+            
+            # Skip test manuals
+            if slug in BLACKLIST or "test" in slug.lower() or "dummy" in slug.lower():
+                continue
+                
             manuals.append({
                 "slug": slug,
                 "title": r.get("title", slug),

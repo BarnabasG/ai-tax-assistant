@@ -14,9 +14,9 @@ if sys.platform == "win32":
 import aiohttp
 from tqdm import tqdm
 
-from qdrant_store import store
-from etl import discover, fetch, parse
-from embed import process_pipeline
+from src.qdrant_store import store
+from src.etl import discover, fetch, parse
+from src.embed import process_pipeline
 
 async def run_update():
     print("=== HMRC RAG Freshness Update ===")
@@ -30,7 +30,7 @@ async def run_update():
     # But since we have a fast cache locally, it's easier to compare against the local discovery cache.
     # Actually, we just generated a new cache, so let's look at the raw json cache.
     
-    raw_json_dir = os.path.join(os.path.dirname(__file__), "..", "data", "raw_json")
+    raw_json_dir = os.path.join(os.path.dirname(__file__), "..", "..", "data", "raw_json")
     
     needs_update = []
     

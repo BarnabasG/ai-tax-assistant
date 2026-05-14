@@ -24,7 +24,7 @@ class LLMRouter:
         self._session: Optional[aiohttp.ClientSession] = None
         self._cache = None
         self._cache_time = 0
-        self._cache_ttl = 60  # seconds
+        self._cache_ttl = 5  # seconds
 
     async def _get_session(self) -> aiohttp.ClientSession:
         if self._session is None or self._session.closed:

@@ -3,9 +3,9 @@ import re
 from typing import AsyncGenerator
 
 import aiohttp
-from embed import generate_sparse_vector, OLLAMA_URL, EMBED_MODEL
-from llm import router
-from qdrant_store import store
+from src.embed import generate_sparse_vector, OLLAMA_URL, EMBED_MODEL
+from src.llm import router
+from src.qdrant_store import store
 
 async def embed_query(query: str) -> list[float]:
     """Get dense embedding for the query.
@@ -58,7 +58,7 @@ async def stream_rag_answer(query: str, chat_history: list[dict], model: str) ->
         yield json.dumps({"error": "Failed to embed query."}) + "\n\n"
         return
         
-    results = store.hybrid_search(dense_vector=dense, sparse_vector=sparse, limit=8)
+    results = await store.hybrid_search(dense_vector=dense, sparse_vector=sparse, limit=8)
     
     if not results:
         yield json.dumps({"token": "I could not find any relevant HMRC guidance for this query."}) + "\n\n"
@@ -94,9 +94,18 @@ async def stream_rag_answer(query: str, chat_history: list[dict], model: str) ->
     # 5. Verification
     hallucinated = verify_citations(full_response, allowed_codes)
     
+    # Deduplicate sources
+    seen_sources = set()
+    unique_sources = []
+    for r in results:
+        sid = r.payload["section_id"]
+        if sid not in seen_sources:
+            unique_sources.append({"section_id": sid, "title": r.payload["title"]})
+            seen_sources.add(sid)
+
     metadata = {
         "done": True,
-        "sources": [{"section_id": r.payload["section_id"], "title": r.payload["title"]} for r in results],
+        "sources": unique_sources,
         "hallucinated_citations": hallucinated
     }
     yield json.dumps(metadata) + "\n\n"

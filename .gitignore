@@ -16,7 +16,7 @@ dist/
 *.log
 
 # Project Specific
-backend/src/data/
+backend/data/
 backend/.env
 backend/reports/
 .env
@@ -24,6 +24,7 @@ implementation_plan.md
 status.md
 .gstack/
 skills-lock.json
+backend/blacklist_candidates.json
 
 # OS
 .DS_Store

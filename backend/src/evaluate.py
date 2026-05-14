@@ -8,9 +8,9 @@ import json
 import os
 from collections import Counter
 
-from qdrant_store import store
-from embed import generate_sparse_vector
-from rag import embed_query
+from src.qdrant_store import store
+from src.embed import generate_sparse_vector
+from src.rag import embed_query
 
 TEST_CASES = [
     {
@@ -29,6 +29,11 @@ TEST_CASES = [
 ]
 
 async def run_evaluation():
+    # Pre-run checks
+    if (await store.count()) == 0:
+        print("Error: Qdrant collection is empty. Run 'make ingest' first.")
+        return
+
     print(f"Running evaluation on {len(TEST_CASES)} queries...\n")
     
     results = []
@@ -44,7 +49,7 @@ async def run_evaluation():
         sparse = generate_sparse_vector(query)
         
         # Search
-        hits = store.hybrid_search(dense, sparse, limit=5)
+        hits = await store.hybrid_search(dense, sparse, limit=5)
         
         top_5_codes = [h.payload["section_id"] for h in hits]
         
@@ -74,14 +79,10 @@ async def run_evaluation():
     print(f"Recall @ 5:    {found_in_top_5 / len(TEST_CASES) * 100:.1f}%")
     
     # Save results
-    data_dir = os.path.join(os.path.dirname(__file__), "data")
+    data_dir = os.path.join(os.path.dirname(__file__), "..", "data")
     os.makedirs(data_dir, exist_ok=True)
     with open(os.path.join(data_dir, "eval_results.json"), "w") as f:
         json.dump(results, f, indent=2)
 
 if __name__ == "__main__":
-    # Pre-run checks
-    if store.count() == 0:
-        print("Error: Qdrant collection is empty. Run 'make ingest' first.")
-    else:
-        asyncio.run(run_evaluation())
+    asyncio.run(run_evaluation())

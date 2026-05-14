@@ -13,7 +13,7 @@ from dotenv import load_dotenv
 from qdrant_client.models import PointStruct, SparseVector
 from tqdm import tqdm
 
-from qdrant_store import store
+from src.qdrant_store import store
 
 load_dotenv()
 
@@ -219,7 +219,7 @@ async def embed_and_upsert_batch(session: aiohttp.ClientSession, docs: list[dict
 
     if points:
 
-        store.upsert_batch(points)
+        await store.upsert_batch(points)
 
 
 async def process_pipeline(docs: list[dict]):
