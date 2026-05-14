@@ -11,7 +11,7 @@ load_dotenv()
 
 QDRANT_URL = os.getenv("QDRANT_URL", "http://localhost:6333")
 COLLECTION = "hmrc_pages"
-DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "data")
+DATA_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "data"))
 SNAPSHOT_FILE = os.path.join(DATA_DIR, "hmrc_data.snapshot")
 
 def export_snapshot():

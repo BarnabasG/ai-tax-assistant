@@ -13,7 +13,7 @@ if sys.platform == "win32":
 import aiohttp
 from tqdm import tqdm
 
-DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "data")
+DATA_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "data"))
 DISCOVERY_CACHE = os.path.join(DATA_DIR, "discovery_cache.json")
 SEARCH_API = "https://www.gov.uk/api/search.json"
 CONTENT_API = "https://www.gov.uk/api/content"

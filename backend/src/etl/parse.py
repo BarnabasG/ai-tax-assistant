@@ -11,7 +11,7 @@ import concurrent.futures
 from bs4 import BeautifulSoup
 from tqdm import tqdm
 
-DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "data")
+DATA_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "data"))
 RAW_JSON_DIR = os.path.join(DATA_DIR, "raw_json")
 
 # HMRC cross-reference regex (e.g. VIT13500, CG12345, PE24300, IHTM04030)

@@ -13,7 +13,7 @@ if sys.platform == "win32":
 from src.etl import discover, fetch, parse
 from src.embed import process_pipeline
 
-DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "data")
+DATA_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "data"))
 STATE_FILE = os.path.join(DATA_DIR, "ingest_state.json")
 
 # Module path setup (removed in favor of project scripts)
