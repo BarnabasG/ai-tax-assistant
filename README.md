@@ -19,7 +19,7 @@ Ensure you have the following installed on your machine:
 - **[Ollama](https://ollama.com/)**: Required for running the AI models locally.
 - **Node.js (v18+) & npm**: For the frontend.
 - **Python (3.12+)**: For the backend.
-- **uv**: (Highly Recommended) Fast Python package manager. `pip install uv`
+- **[uv](https://github.com/astral-sh/uv)**: (Required) Fast Python package manager used by the Makefile.
 
 ### 2. Start the Database
 The vector database runs in a Docker container. Ensure Docker Desktop is open, then run:
@@ -78,7 +78,7 @@ make api
 make frontend
 ```
 
-Navigate to `http://localhost:3000` in your browser.
+Navigate to `http://localhost:3000` in your browser. (The backend API is served on `http://localhost:8002`).
 
 ---
 
@@ -94,4 +94,5 @@ A `Makefile` is included to simplify common tasks. Run these from the project ro
 | `make export-data` | Exports the database to `backend/data/hmrc_data.snapshot` for easy sharing |
 | `make import-data` | Restores the database from a `.snapshot` file |
 | `make update` | Checks for new HMRC manual updates and re-indexes only changes |
+| `make assess-content` | Audits current database for junk or placeholder manuals |
 | `make clean` | **WARNING:** Wipes the entire vector database |
