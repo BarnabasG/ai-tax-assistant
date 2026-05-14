@@ -1,0 +1,87 @@
+name: Weekly HMRC Data Snapshot
+
+on:
+  schedule:
+    - cron: '0 0 * * 0' # Every Sunday at midnight UTC
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  update-snapshot:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Get Current Date
+        id: date
+        run: echo "today=$(date +'%Y-%m-%d')" >> $GITHUB_OUTPUT
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+          enable-cache: true
+          cache-dependency-glob: "backend/uv.lock"
+
+      - name: Install Dependencies
+        run: uv sync
+        working-directory: backend
+
+      - name: Start Qdrant
+        run: |
+          docker run -d -p 6333:6333 qdrant/qdrant
+          timeout 60s bash -c "until curl -s http://localhost:6333/readyz; do sleep 2; done"
+
+      - name: Cache Ollama Models
+        uses: actions/cache@v4
+        with:
+          path: ~/.ollama/models
+          key: ollama-models-${{ runner.os }}-nomic-embed-text
+          restore-keys: |
+            ollama-models-${{ runner.os }}-
+
+      - name: Install Ollama
+        run: |
+          curl -fsSL https://ollama.com/install.sh | sh
+          ollama serve & 
+          timeout 60s bash -c "until curl -s http://localhost:11434/api/tags; do sleep 2; done"
+          ollama pull nomic-embed-text
+
+      - name: Download Previous Snapshot
+        uses: dsaltares/fetch-gh-release-asset@1.1.2
+        with:
+          version: 'latest'
+          file: 'hmrc_data.snapshot'
+          target: 'backend/data/hmrc_data.snapshot'
+        continue-on-error: true
+
+      - name: Update Data and Export Snapshot
+        run: |
+          if [ -f backend/data/hmrc_data.snapshot ]; then
+            make import-data
+          fi
+          make update
+          make export-data
+        # Run from root so Makefile targets work, but ensure backend is in path
+        env:
+          PYTHONPATH: ${{ github.workspace }}/backend
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: data-${{ steps.date.outputs.today }}
+          name: "HMRC Legislation Snapshot - ${{ steps.date.outputs.today }}"
+          body: |
+            Automated weekly refresh of HMRC Internal Manuals.
+            - Updated on: ${{ steps.date.outputs.today }}
+          files: backend/data/hmrc_data.snapshot
+          make_latest: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
