@@ -95,23 +95,25 @@ async def get_manual_sections(
     sections = []
 
     async def walk(base_path: str):
-        async with semaphore:
-            url = f"{CONTENT_API}{base_path}"
-            
-            for attempt in range(3):
-                try:
+        url = f"{CONTENT_API}{base_path}"
+        
+        for attempt in range(3):
+            try:
+                async with semaphore:
                     async with session.get(url) as resp:
                         if resp.status != 200:
+                            if resp.status == 429:
+                                raise Exception("Rate limited")
                             # 429 or 5xx should retry, 404 should probably just stop
                             if resp.status == 404:
                                 return
                             raise Exception(f"HTTP {resp.status}")
                         data = await resp.json()
-                    break
-                except Exception:
-                    if attempt == 2:
-                        return
-                    await asyncio.sleep(2 ** attempt)
+                break
+            except Exception as e:
+                if attempt == 2:
+                    return
+                await asyncio.sleep((2 ** attempt) + 0.5)
 
         details = data.get("details", {})
 
@@ -156,7 +158,7 @@ async def discover_all(force: bool = False) -> list[dict]:
         return cached
 
     all_sections = []
-    semaphore = asyncio.Semaphore(20)  # Respect GOV.UK rate limits
+    semaphore = asyncio.Semaphore(50)  # GOV.UK rate limits
 
     timeout = aiohttp.ClientTimeout(total=30)
     async with aiohttp.ClientSession(timeout=timeout) as session:
