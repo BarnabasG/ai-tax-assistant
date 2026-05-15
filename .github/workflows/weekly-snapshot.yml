@@ -69,9 +69,9 @@ jobs:
           fi
           make update
           make export-data
-        # Run from root so Makefile targets work, but ensure backend is in path
         env:
           PYTHONPATH: ${{ github.workspace }}/backend
+          UV_PROJECT_ENVIRONMENT: ${{ github.workspace }}/backend
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2

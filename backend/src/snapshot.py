@@ -49,7 +49,7 @@ def import_snapshot():
     print(f"Uploading {SNAPSHOT_FILE} to Qdrant (this may take a minute)...")
     
     # Use the upload endpoint which handles the file transfer and recovery
-    url = f"{QDRANT_URL}/collections/{COLLECTION}/snapshots/upload?priority=true"
+    url = f"{QDRANT_URL}/collections/{COLLECTION}/snapshots/upload?priority=snapshot"
     
     with open(SNAPSHOT_FILE, 'rb') as f:
         files = {'snapshot': (os.path.basename(SNAPSHOT_FILE), f, 'application/octet-stream')}
