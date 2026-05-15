@@ -39,8 +39,20 @@ async def discover_all_manuals(session: aiohttp.ClientSession) -> list[dict]:
             "start": start,
             "fields": "title,link,description,public_timestamp",
         }
-        async with session.get(SEARCH_API, params=params) as resp:
-            data = await resp.json()
+        
+        # Retry logic for pagination
+        for attempt in range(5):
+            try:
+                async with session.get(SEARCH_API, params=params) as resp:
+                    if resp.status != 200:
+                        raise Exception(f"Search API returned {resp.status}")
+                    data = await resp.json()
+                break
+            except Exception as e:
+                if attempt == 4:
+                    print(f"Failed to fetch search results at start={start}: {e}")
+                    return manuals
+                await asyncio.sleep(2 ** attempt)
 
         results = data.get("results", [])
         if not results:
@@ -85,13 +97,21 @@ async def get_manual_sections(
     async def walk(base_path: str):
         async with semaphore:
             url = f"{CONTENT_API}{base_path}"
-            try:
-                async with session.get(url) as resp:
-                    if resp.status != 200:
+            
+            for attempt in range(3):
+                try:
+                    async with session.get(url) as resp:
+                        if resp.status != 200:
+                            # 429 or 5xx should retry, 404 should probably just stop
+                            if resp.status == 404:
+                                return
+                            raise Exception(f"HTTP {resp.status}")
+                        data = await resp.json()
+                    break
+                except Exception:
+                    if attempt == 2:
                         return
-                    data = await resp.json()
-            except Exception:
-                return
+                    await asyncio.sleep(2 ** attempt)
 
         details = data.get("details", {})
 

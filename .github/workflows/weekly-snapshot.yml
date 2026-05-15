@@ -38,6 +38,16 @@ jobs:
           docker run -d -p 6333:6333 qdrant/qdrant
           timeout 60s bash -c "until curl -s http://localhost:6333/readyz; do sleep 2; done"
 
+      - name: Cache HMRC Raw Data
+        uses: actions/cache@v4
+        with:
+          path: |
+            backend/data/raw_json
+            backend/data/discovery_cache.json
+          key: hmrc-raw-data-${{ github.run_id }}
+          restore-keys: |
+            hmrc-raw-data-
+
       - name: Cache Ollama Models
         uses: actions/cache@v4
         with:
