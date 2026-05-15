@@ -31,8 +31,7 @@ jobs:
           cache-dependency-glob: "backend/uv.lock"
 
       - name: Install Dependencies
-        run: uv sync
-        working-directory: backend
+        run: uv sync --project backend
 
       - name: Start Qdrant
         run: |
@@ -71,7 +70,7 @@ jobs:
           make export-data
         env:
           PYTHONPATH: ${{ github.workspace }}/backend
-          UV_PROJECT_ENVIRONMENT: ${{ github.workspace }}/backend
+          UV_PROJECT_ENVIRONMENT: ${{ github.workspace }}/backend/.venv
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
