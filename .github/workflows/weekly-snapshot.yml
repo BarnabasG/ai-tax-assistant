@@ -15,6 +15,12 @@ jobs:
     permissions:
       contents: write
     
+    services:
+      qdrant:
+        image: qdrant/qdrant
+        ports:
+          - 6333:6333
+    
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -33,12 +39,8 @@ jobs:
       - name: Install Dependencies
         run: uv sync --project backend
 
-      - name: Start Qdrant
-        run: |
-          docker run -d -p 6333:6333 qdrant/qdrant
-          timeout 60s bash -c "until curl -s http://localhost:6333/readyz; do sleep 2; done"
-
       - name: Cache HMRC Raw Data
+        id: cache-raw-data
         uses: actions/cache@v4
         with:
           path: |
@@ -71,6 +73,23 @@ jobs:
           target: 'backend/data/hmrc_data.snapshot'
         continue-on-error: true
 
+      - name: Download Raw JSON Seed (Onetime)
+        if: steps.cache-raw-data.outputs.cache-hit != 'true'
+        uses: dsaltares/fetch-gh-release-asset@1.1.2
+        with:
+          version: 'tags/v1.0.0'
+          file: 'raw_json.zip'
+          target: 'backend/data/raw_json.zip'
+        continue-on-error: true
+
+      - name: Unzip Raw JSON Seed
+        if: steps.cache-raw-data.outputs.cache-hit != 'true'
+        run: |
+          if [ -f backend/data/raw_json.zip ]; then
+            unzip -o backend/data/raw_json.zip -d backend/data/
+            rm backend/data/raw_json.zip
+          fi
+
       - name: Update Data and Export Snapshot
         run: |
           if [ -f backend/data/hmrc_data.snapshot ]; then
@@ -78,9 +97,6 @@ jobs:
           fi
           make update
           make export-data
-        env:
-          PYTHONPATH: ${{ github.workspace }}/backend
-          UV_PROJECT_ENVIRONMENT: ${{ github.workspace }}/backend/.venv
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
