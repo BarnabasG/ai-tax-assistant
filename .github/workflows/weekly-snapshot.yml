@@ -86,7 +86,8 @@ jobs:
         if: steps.cache-raw-data.outputs.cache-hit != 'true'
         run: |
           if [ -f backend/data/raw_json.zip ]; then
-            unzip -o backend/data/raw_json.zip -d backend/data/
+            mkdir -p backend/data/raw_json
+            unzip -o backend/data/raw_json.zip -d backend/data/raw_json/
             rm backend/data/raw_json.zip
           fi
 

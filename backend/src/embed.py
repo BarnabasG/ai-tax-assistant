@@ -190,13 +190,19 @@ async def embed_and_upsert_batch(session: aiohttp.ClientSession, docs: list[dict
 
     # Generate dense embeddings in one batch
     dense_embeddings = await generate_embeddings(session, texts_to_embed)
+    
+    # Generate sparse embeddings in one batch
+    sparse_embeddings = list(_bm25_encoder.passage_embed(texts_to_embed))
 
     # Assemble points
-    for (point_id, payload, text), dense in zip(point_metadata, dense_embeddings):
+    for (point_id, payload, text), dense, sparse_raw in zip(point_metadata, dense_embeddings, sparse_embeddings):
         if not dense:
             continue # Skip failed embeddings
             
-        sparse = generate_sparse_vector_passage(text)
+        sparse = SparseVector(
+            indices=sparse_raw.indices.tolist(),
+            values=sparse_raw.values.tolist(),
+        )
         
         # UUID generation
         import hashlib
@@ -218,7 +224,6 @@ async def embed_and_upsert_batch(session: aiohttp.ClientSession, docs: list[dict
         points.append(point)
 
     if points:
-
         await store.upsert_batch(points)
 
 
