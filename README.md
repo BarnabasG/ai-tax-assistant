@@ -11,6 +11,12 @@ A high-performance Retrieval-Augmented Generation (RAG) system for querying HMRC
 
 ---
 
+<div align="center">
+  <img src="hmrc_rag.png" alt="HMRC RAG UI" width="800px" style="border-radius: 10px; box-shadow: 0 10px 30px rgba(0,0,0,0.5);" />
+</div>
+
+---
+
 ## Quick Start Setup
 
 ### 1. Prerequisites

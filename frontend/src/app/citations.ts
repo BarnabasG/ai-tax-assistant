@@ -6,9 +6,9 @@
  * can parse and our `a` component override can intercept.
  */
 
-// Regex to match [CODE] or fullwidth 【CODE】
-export const CITATION_RE = /(\[[A-Z]{2,6}\d{4,6}\]|【[A-Z]{2,6}\d{4,6}】)/g;
-export const CITATION_EXTRACT_RE = /^[\[【]([A-Z]{2,6}\d{4,6})[\]】]$/;
+// Regex to match [CODE] or [ CODE ] or fullwidth 【CODE】
+export const CITATION_RE = /(\[[\s\u202F]*[A-Z]{2,6}\d{4,6}[\s\u202F]*\]|【[\s\u202F]*[A-Z]{2,6}\d{4,6}[\s\u202F]*】)/g;
+export const CITATION_EXTRACT_RE = /^[\[【][\s\u202F]*([A-Z]{2,6}\d{4,6})[\s\u202F]*[\]】]$/;
 
 /**
  * Pre-process a markdown string to convert citation patterns into
@@ -21,7 +21,7 @@ export const CITATION_EXTRACT_RE = /^[\[【]([A-Z]{2,6}\d{4,6})[\]】]$/;
  */
 export function preprocessCitations(content: string): string {
   // Pull standalone citations that the LLM placed on a new line back into the previous paragraph
-  let processed = content.replace(/(?:\r?\n)+\s*(\[[A-Z]{2,6}\d{4,6}\]|【[A-Z]{2,6}\d{4,6}】)/g, ' $1');
+  let processed = content.replace(/(?:\r?\n)+[\s\u202F]*(\[[\s\u202F]*[A-Z]{2,6}\d{4,6}[\s\u202F]*\]|【[\s\u202F]*[A-Z]{2,6}\d{4,6}[\s\u202F]*】)/g, ' $1');
 
   return processed.replace(CITATION_RE, (match) => {
     const inner = match.match(CITATION_EXTRACT_RE);
