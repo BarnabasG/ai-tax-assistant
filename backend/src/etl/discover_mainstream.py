@@ -101,6 +101,7 @@ async def _fetch_browse_page(
                 params["filter_content_store_document_type[]"] = [params["filter_content_store_document_type[]"]]
             params["filter_content_store_document_type[]"].append(dt)
 
+        data = None
         for attempt in range(5):
             try:
                 async with session.get(SEARCH_API, params=params) as resp:
@@ -116,6 +117,9 @@ async def _fetch_browse_page(
                     print(f"Failed to fetch browse page '{browse_page}' at start={start}: {e}")
                     return results_list
                 await asyncio.sleep(2 ** attempt)
+
+        if data is None:
+            break
 
         results = data.get("results", [])
         if not results:
