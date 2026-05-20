@@ -116,7 +116,7 @@ jobs:
         run: |
           if [ -f backend/data/raw_json_mainstream.zip ]; then
             mkdir -p backend/data/raw_json_mainstream
-            unzip -q -o backend/data/raw_json_mainstream.zip -d backend/data/raw_json_mainstream/ 2>&1 | grep -v "warning" || true
+            unzip -o backend/data/raw_json_mainstream.zip -d backend/data/raw_json_mainstream/
             rm backend/data/raw_json_mainstream.zip
           fi
 
