@@ -39,7 +39,7 @@ jobs:
       - name: Install Dependencies
         run: uv sync --project backend
 
-      - name: Cache HMRC Raw Data
+      - name: Cache HMRC Raw Data (Manuals)
         id: cache-raw-data
         uses: actions/cache@v4
         with:
@@ -49,6 +49,17 @@ jobs:
           key: hmrc-raw-data-${{ github.run_id }}
           restore-keys: |
             hmrc-raw-data-
+
+      - name: Cache GOV.UK Mainstream Raw Data
+        id: cache-mainstream-data
+        uses: actions/cache@v4
+        with:
+          path: |
+            backend/data/raw_json_mainstream
+            backend/data/mainstream_discovery_cache.json
+          key: govuk-mainstream-data-${{ github.run_id }}
+          restore-keys: |
+            govuk-mainstream-data-
 
       - name: Cache Ollama Models
         uses: actions/cache@v4
@@ -91,6 +102,24 @@ jobs:
             rm backend/data/raw_json.zip
           fi
 
+      - name: Download Mainstream Raw JSON Seed (Onetime)
+        if: steps.cache-mainstream-data.outputs.cache-hit != 'true'
+        uses: dsaltares/fetch-gh-release-asset@1.1.2
+        with:
+          version: 'tags/v1.0.0'
+          file: 'raw_json_mainstream.zip'
+          target: 'backend/data/raw_json_mainstream.zip'
+        continue-on-error: true
+
+      - name: Unzip Mainstream Raw JSON Seed
+        if: steps.cache-mainstream-data.outputs.cache-hit != 'true'
+        run: |
+          if [ -f backend/data/raw_json_mainstream.zip ]; then
+            mkdir -p backend/data/raw_json_mainstream
+            unzip -o backend/data/raw_json_mainstream.zip -d backend/data/raw_json_mainstream/
+            rm backend/data/raw_json_mainstream.zip
+          fi
+
       - name: Update Data and Export Snapshot
         run: |
           if [ -f backend/data/hmrc_data.snapshot ]; then
@@ -103,9 +132,11 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: data-${{ steps.date.outputs.today }}
-          name: "HMRC Legislation Snapshot - ${{ steps.date.outputs.today }}"
+          name: "HMRC Tax Data Snapshot - ${{ steps.date.outputs.today }}"
           body: |
-            Automated weekly refresh of HMRC Internal Manuals.
+            Automated weekly refresh of HMRC tax guidance data.
+            - HMRC Internal Manuals: updated from GOV.UK Content API
+            - GOV.UK Mainstream Guides: updated across 20 tax-related browse categories
             - Updated on: ${{ steps.date.outputs.today }}
           files: backend/data/hmrc_data.snapshot
           make_latest: true

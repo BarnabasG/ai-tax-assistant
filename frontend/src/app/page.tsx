@@ -8,7 +8,10 @@ import {
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { CITATION_RE, CITATION_EXTRACT_RE, preprocessCitations, isCitationHref, extractCitationCode } from "./citations";
+import {
+  CITATION_RE, CITATION_EXTRACT_RE, preprocessCitations,
+  isCitationHref, extractCitationCode, getSequentialCitations
+} from "./citations";
 
 // Types
 type Section = {
@@ -35,6 +38,7 @@ type PageData = {
 type SourceInfo = {
   section_id: string;
   title: string;
+  displayIndex?: number;
 };
 
 type Message = {
@@ -299,8 +303,29 @@ export default function Home() {
   }, []);
 
   // Sources panel toggle
-  const openSourcesPanel = useCallback((sources: SourceInfo[]) => {
-    setActiveSources(sources);
+  const openSourcesPanel = useCallback((sources: SourceInfo[], content?: string) => {
+    let sorted: SourceInfo[] = [];
+    if (content) {
+      const citedCodes = getSequentialCitations(content);
+      sorted = [...sources].sort((a, b) => {
+        const idxA = citedCodes.indexOf(a.section_id);
+        const idxB = citedCodes.indexOf(b.section_id);
+        
+        if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+        if (idxA !== -1) return -1;
+        if (idxB !== -1) return 1;
+        return 0;
+      }).map(s => {
+        const citationIdx = citedCodes.indexOf(s.section_id);
+        return {
+          ...s,
+          displayIndex: citationIdx !== -1 ? citationIdx + 1 : undefined
+        };
+      });
+    } else {
+      sorted = sources;
+    }
+    setActiveSources(sorted);
     setActiveSourcePage(null);
     setActiveSourceId(null);
     setSourcePanelOpen(true);
@@ -374,7 +399,11 @@ export default function Home() {
             if (data.token) {
               fullResponse += data.token;
               hasTokenUpdate = true;
-            } else if (data.done) {
+            }
+            if (data.sources) {
+              sources = data.sources;
+            }
+            if (data.done) {
               finalSources = data.sources || [];
               isDone = true;
             }
@@ -415,13 +444,14 @@ export default function Home() {
               }
             }).catch(console.error);
           }
-        } else if (hasTokenUpdate) {
+        } else if (hasTokenUpdate || sources.length > 0) {
           setMessages((prev) => {
             const updated = [...prev];
             updated[updated.length - 1] = {
               ...updated[updated.length - 1],
               content: fullResponse,
               isStreaming: true,
+              sources: sources.length > 0 ? sources : undefined,
             };
             return updated;
           });
@@ -485,7 +515,7 @@ export default function Home() {
   };
 
   // Markdown renderer with citation support
-  const renderContent = useCallback((content: string) => {
+  const renderContent = useCallback((content: string, msgSources?: SourceInfo[]) => {
     const processed = preprocessCitations(content);
     return (
       <ReactMarkdown
@@ -526,13 +556,59 @@ export default function Home() {
           a: ({ children, href }) => {
             if (isCitationHref(href)) {
               const code = extractCitationCode(href)!;
+              const isGov = code.startsWith("GOV:");
+              
+              const urlParams = new URLSearchParams(href?.split("?")[1] || "");
+              const displayIndex = urlParams.get("seq");
+              const isDuplicate = urlParams.get("dup") === "true";
+              
+              let title = code;
+              if (isGov) {
+                const src = msgSources?.find(s => s.section_id === code);
+                if (src) {
+                  title = src.title;
+                  // Clean up overly long prefix like "Self Assessment tax returns - Who must send..."
+                  if (title.includes(" - ")) {
+                    title = title.split(" - ").pop()!;
+                  } else if (title.includes(": ")) {
+                    title = title.split(": ").pop()!;
+                  }
+                } else {
+                  // Fallback: show the guide part slug capitalized
+                  const slug = code.replace("GOV:", "");
+                  const lastPart = slug.split("/").pop() || slug;
+                  title = lastPart
+                    .split("-")
+                    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+                    .join(" ");
+                }
+              }
+              
+              if (isDuplicate && displayIndex) {
+                return (
+                  <button
+                    onClick={(e) => { e.preventDefault(); loadSourcePage(code); }}
+                    className={isGov ? "citation-btn-gov-subtle font-mono text-[10px]" : "citation-btn-subtle font-mono text-[10px]"}
+                    type="button"
+                    title={title}
+                  >
+                    [{displayIndex}]
+                  </button>
+                );
+              }
+              
               return (
                 <button
                   onClick={(e) => { e.preventDefault(); loadSourcePage(code); }}
-                  className="citation-btn"
+                  className={isGov ? "citation-btn-gov" : "citation-btn"}
                   type="button"
                 >
-                  {code}
+                  {title}
+                  {displayIndex && (
+                    <sup className="ml-[1px] text-[9px] font-mono font-medium align-super opacity-85">
+                      {displayIndex}
+                    </sup>
+                  )}
                 </button>
               );
             }
@@ -806,7 +882,7 @@ export default function Home() {
                           return (
                             <>
                               <div className="text-[15px] leading-[1.75] text-foreground/90">
-                                {renderContent(displayContent)}
+                                {renderContent(displayContent, msg.sources)}
                                 {msg.isStreaming && (
                                   <span className="inline-block w-1.5 h-4 ml-0.5 bg-primary/60 animate-pulse align-middle rounded-sm" />
                                 )}
@@ -850,7 +926,7 @@ export default function Home() {
                                   {/* Sources */}
                                   {msg.sources && msg.sources.length > 0 && (
                                     <button
-                                      onClick={() => openSourcesPanel(msg.sources!)}
+                                      onClick={() => openSourcesPanel(msg.sources!, displayContent)}
                                       className="ml-2 inline-flex items-center gap-1.5 px-3 py-1 rounded-full border border-border bg-secondary/40 text-xs text-muted-foreground hover:text-foreground hover:border-primary/30 hover:bg-secondary/70 transition-all duration-200"
                                       title="View sources"
                                     >
@@ -973,9 +1049,23 @@ export default function Home() {
                   </div>
                   <h3 className="text-lg font-bold text-foreground mb-2">{activeSourcePage.title}</h3>
                   <div className="flex items-center gap-3">
-                    <span className="bg-primary/15 text-primary px-2 py-0.5 rounded text-xs font-bold font-mono">
+                    <span className={activeSourcePage.section_id.startsWith("GOV:")
+                      ? "bg-accent/15 text-accent px-2 py-0.5 rounded text-xs font-bold font-mono"
+                      : "bg-primary/15 text-primary px-2 py-0.5 rounded text-xs font-bold font-mono"
+                    }>
                       {activeSourcePage.section_id}
                     </span>
+                    {(() => {
+                      const matched = activeSources.find(s => s.section_id === activeSourcePage.section_id);
+                      if (matched && matched.displayIndex) {
+                        return (
+                          <span className="text-xs font-bold text-muted-foreground/80 bg-secondary px-2 py-0.5 rounded font-mono">
+                            [{matched.displayIndex}]
+                          </span>
+                        );
+                      }
+                      return null;
+                    })()}
                     <a
                       href={activeSourcePage.gov_url}
                       target="_blank"
@@ -1028,9 +1118,17 @@ export default function Home() {
                         }`}
                     >
                       <div className="flex items-center gap-2 mb-1.5">
-                        <span className="bg-primary/15 text-primary px-1.5 py-0.5 rounded text-[10px] font-bold font-mono">
+                        <span className={src.section_id.startsWith("GOV:")
+                          ? "bg-accent/15 text-accent px-1.5 py-0.5 rounded text-[10px] font-bold font-mono"
+                          : "bg-primary/15 text-primary px-1.5 py-0.5 rounded text-[10px] font-bold font-mono"
+                        }>
                           {src.section_id}
                         </span>
+                        {src.displayIndex && (
+                          <span className="text-[10px] font-bold text-muted-foreground/80 bg-secondary px-1.5 py-0.5 rounded font-mono">
+                            [{src.displayIndex}]
+                          </span>
+                        )}
                       </div>
                       <p className="text-xs text-muted-foreground group-hover:text-foreground/80 transition-colors line-clamp-2">
                         {src.title}
@@ -1107,9 +1205,9 @@ export default function Home() {
                   {group.manual_title}
                 </h3>
                 <div className="space-y-0.5 ml-1 border-l border-border/40 pl-2">
-                  {group.results.map((res) => (
+                  {group.results.map((res, idx) => (
                     <button
-                      key={res.section_id}
+                      key={`${res.section_id}-${idx}`}
                       onClick={() => loadSourcePage(res.section_id)}
                       className="w-full text-left px-2.5 py-2 rounded-md hover:bg-secondary/60 transition-colors text-sm group"
                     >

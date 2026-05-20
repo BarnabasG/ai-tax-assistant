@@ -2,10 +2,10 @@ import pytest
 import json
 import os
 from unittest.mock import AsyncMock, patch, MagicMock, mock_open
-from etl.discover import discover_all_manuals, get_manual_sections, discover_all
-from etl.fetch import fetch_section, fetch_all
-from etl.update import run_update
-from etl.ingest import run_pipeline
+from src.etl.discover import discover_all_manuals, get_manual_sections, discover_all
+from src.etl.fetch import fetch_section, fetch_all
+from src.etl.update import run_update
+from src.etl.ingest import run_pipeline
 
 @pytest.mark.asyncio
 async def test_get_manual_sections_recursive():
@@ -134,14 +134,14 @@ async def test_fetch_section_success():
 @pytest.mark.asyncio
 async def test_fetch_all():
     sections = [{"manual_slug": "VAT", "section_id": "VIT123", "base_path": "/vat/vit123"}]
-    with patch("etl.fetch.fetch_section", new_callable=AsyncMock) as mock_fetch:
+    with patch("src.etl.fetch.fetch_section", new_callable=AsyncMock) as mock_fetch:
         mock_fetch.return_value = True
         await fetch_all(sections)
         mock_fetch.assert_called_once()
 
 @pytest.mark.asyncio
 async def test_run_update_no_changes():
-    with patch("etl.discover.discover_all", new_callable=AsyncMock) as mock_discover, \
+    with patch("src.etl.discover.discover_all", new_callable=AsyncMock) as mock_discover, \
          patch("os.path.exists", return_value=True), \
          patch("builtins.open", mock_open(read_data='{"public_updated_at": "2024-01-01"}')):
         
@@ -156,10 +156,10 @@ async def test_run_update_no_changes():
 
 @pytest.mark.asyncio
 async def test_run_ingest():
-    with patch("etl.discover.discover_all", new_callable=AsyncMock) as mock_discover, \
-         patch("etl.fetch.fetch_all", new_callable=AsyncMock) as mock_fetch, \
-         patch("etl.parse.parse_all") as mock_parse, \
-         patch("etl.ingest.process_pipeline") as mock_pipeline:
+    with patch("src.etl.discover.discover_all", new_callable=AsyncMock) as mock_discover, \
+         patch("src.etl.fetch.fetch_all", new_callable=AsyncMock) as mock_fetch, \
+         patch("src.etl.parse.parse_all") as mock_parse, \
+         patch("src.etl.ingest.process_pipeline") as mock_pipeline:
         
         mock_discover.return_value = []
         mock_parse.return_value = []
@@ -168,7 +168,7 @@ async def test_run_ingest():
         await run_pipeline()
 
 def test_load_save_state():
-    from etl.ingest import load_state, save_state, STATE_FILE
+    from src.etl.ingest import load_state, save_state, STATE_FILE
     state = {"processed_sections": ["TEST1"]}
     with patch("os.path.exists", return_value=True), \
          patch("builtins.open", mock_open(read_data=json.dumps(state))), \
@@ -184,8 +184,8 @@ def test_load_save_state():
 @pytest.mark.asyncio
 async def test_discover_all_no_cache():
     with patch("os.path.exists", return_value=False), \
-         patch("etl.discover.discover_all_manuals", new_callable=AsyncMock) as mock_manuals, \
-         patch("etl.discover.get_manual_sections", new_callable=AsyncMock) as mock_sections, \
+         patch("src.etl.discover.discover_all_manuals", new_callable=AsyncMock) as mock_manuals, \
+         patch("src.etl.discover.get_manual_sections", new_callable=AsyncMock) as mock_sections, \
          patch("builtins.open", mock_open()):
         
         mock_manuals.return_value = [{"slug": "VAT", "title": "VAT"}]
@@ -214,29 +214,39 @@ async def test_fetch_section_retry():
          patch("builtins.open", mock_open()), \
          patch("asyncio.sleep", new_callable=AsyncMock):
         
-        from etl.fetch import fetch_section
+        from src.etl.fetch import fetch_section
         success = await fetch_section(mock_session, section, semaphore)
         assert success is True
         assert mock_session.get.call_count == 2
 
 @pytest.mark.asyncio
 async def test_run_update_with_changes():
-    with patch("etl.discover.discover_all", new_callable=AsyncMock) as mock_discover, \
-         patch("os.path.exists", side_effect=[True, False]), \
-         patch("builtins.open", mock_open(read_data='{"public_updated_at": "old-date"}')), \
-         patch("etl.fetch.fetch_all", new_callable=AsyncMock), \
-         patch("etl.parse.parse_all", return_value=[]), \
-         patch("etl.update.process_pipeline") as mock_pipeline:
+    def exists_side_effect(path):
+        if "raw_json" in path and path.endswith(".json") and "update_state" not in path:
+            return True
+        return False
+
+    with patch("src.etl.discover.discover_all", new_callable=AsyncMock) as mock_discover, \
+         patch("os.path.exists", side_effect=exists_side_effect), \
+         patch("builtins.open", mock_open(read_data='{"public_updated_at": "2024-10-20T10:00:00Z"}')), \
+         patch("src.etl.fetch.fetch_all", new_callable=AsyncMock), \
+         patch("src.etl.parse.parse_all", return_value=[{"section_id": "VIT123", "text": "test"}]), \
+         patch("src.etl.update.process_pipeline") as mock_pipeline, \
+         patch("src.etl.update._load_update_state", return_value={"embedded_sections": []}), \
+         patch("src.etl.update._save_update_state"), \
+         patch("src.etl.update._clear_update_state"), \
+         patch("os.remove"):
         
         mock_discover.return_value = [{
             "manual_slug": "VAT",
             "section_id": "VIT123",
-            "updated_at": "new-date"
+            "updated_at": "2024-10-21T10:00:00Z"
         }]
         
         async def mock_gen(*args):
-            yield []
+            yield [{"section_id": "VIT123"}]
         mock_pipeline.return_value = mock_gen()
         
         await run_update()
         mock_pipeline.assert_called()
+

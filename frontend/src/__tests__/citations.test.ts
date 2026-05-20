@@ -68,19 +68,19 @@ describe("CITATION_EXTRACT_RE", () => {
 describe("preprocessCitations", () => {
   test("converts standard bracket citation to markdown link", () => {
     expect(preprocessCitations("See [VIT55400] for details.")).toBe(
-      "See [VIT55400](cite:VIT55400) for details."
+      "See [VIT55400](cite:VIT55400?seq=1) for details."
     );
   });
 
   test("converts fullwidth bracket citation to markdown link", () => {
     expect(preprocessCitations("See 【VIT55400】 for info.")).toBe(
-      "See [VIT55400](cite:VIT55400) for info."
+      "See [VIT55400](cite:VIT55400?seq=1) for info."
     );
   });
 
   test("converts multiple citations in one string", () => {
     const input = "Per [VIT55400] and [PE63500], the rule applies.";
-    const expected = "Per [VIT55400](cite:VIT55400) and [PE63500](cite:PE63500), the rule applies.";
+    const expected = "Per [VIT55400](cite:VIT55400?seq=1) and [PE63500](cite:PE63500?seq=2), the rule applies.";
     expect(preprocessCitations(input)).toBe(expected);
   });
 
@@ -96,19 +96,19 @@ describe("preprocessCitations", () => {
 
   test("handles citations inside markdown tables", () => {
     const input = "| Section | Reference |\n|---------|----------|\n| VAT | [VIT55400] |";
-    const expected = "| Section | Reference |\n|---------|----------|\n| VAT | [VIT55400](cite:VIT55400) |";
+    const expected = "| Section | Reference |\n|---------|----------|\n| VAT | [VIT55400](cite:VIT55400?seq=1) |";
     expect(preprocessCitations(input)).toBe(expected);
   });
 
   test("handles citations in bold text", () => {
     const input = "**Important**: See [VIT55400] for the full rule.";
-    const expected = "**Important**: See [VIT55400](cite:VIT55400) for the full rule.";
+    const expected = "**Important**: See [VIT55400](cite:VIT55400?seq=1) for the full rule.";
     expect(preprocessCitations(input)).toBe(expected);
   });
 
   test("handles citations in list items", () => {
     const input = "- [VIT55400] covers fuel\n- [PE63500] covers partial exemption";
-    const expected = "- [VIT55400](cite:VIT55400) covers fuel\n- [PE63500](cite:PE63500) covers partial exemption";
+    const expected = "- [VIT55400](cite:VIT55400?seq=1) covers fuel\n- [PE63500](cite:PE63500?seq=2) covers partial exemption";
     expect(preprocessCitations(input)).toBe(expected);
   });
 
@@ -118,19 +118,19 @@ describe("preprocessCitations", () => {
 
   test("handles citation at start of string", () => {
     expect(preprocessCitations("[VIT55400] states that...")).toBe(
-      "[VIT55400](cite:VIT55400) states that..."
+      "[VIT55400](cite:VIT55400?seq=1) states that..."
     );
   });
 
   test("handles citation at end of string", () => {
     expect(preprocessCitations("The rule is in [VIT55400]")).toBe(
-      "The rule is in [VIT55400](cite:VIT55400)"
+      "The rule is in [VIT55400](cite:VIT55400?seq=1)"
     );
   });
 
   test("pulls block-level citations inline", () => {
     expect(preprocessCitations("The rule applies.\n\n[VIT55400]")).toBe(
-      "The rule applies. [VIT55400](cite:VIT55400)"
+      "The rule applies. [VIT55400](cite:VIT55400?seq=1)"
     );
   });
 });
@@ -194,13 +194,13 @@ describe("Regression: citation preprocessing must not break markdown", () => {
   test("mixed fullwidth and standard brackets are both converted", () => {
     const input = "As stated in [VIT55400] and confirmed by 【PE63500】, the rates apply.";
     const result = preprocessCitations(input);
-    expect(result).toContain("[VIT55400](cite:VIT55400)");
-    expect(result).toContain("[PE63500](cite:PE63500)");
+    expect(result).toContain("[VIT55400](cite:VIT55400?seq=1)");
+    expect(result).toContain("[PE63500](cite:PE63500?seq=2)");
   });
 
   test("citations inside markdown headings work", () => {
     const input = "## VAT Fuel Scale Charges [VIT55400]";
     const result = preprocessCitations(input);
-    expect(result).toBe("## VAT Fuel Scale Charges [VIT55400](cite:VIT55400)");
+    expect(result).toBe("## VAT Fuel Scale Charges [VIT55400](cite:VIT55400?seq=1)");
   });
 });

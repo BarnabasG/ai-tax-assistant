@@ -122,6 +122,54 @@ async def get_page(code: str):
         return {"error": "Page not found"}
         
     p = results[0].payload
+    
+    if code.startswith("GOV:"):
+        slug_path = code[4:]
+        if "/" in slug_path:
+            guide_slug, part_slug = slug_path.split("/", 1)
+        else:
+            guide_slug, part_slug = slug_path, None
+            
+        import os
+        data_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "data"))
+        json_path = os.path.join(data_dir, "raw_json_mainstream", f"{guide_slug}.json")
+        
+        full_text = None
+        if os.path.exists(json_path):
+            try:
+                with open(json_path, "r") as f:
+                    data = json.load(f)
+                
+                details = data.get("details", {})
+                if part_slug and "parts" in details:
+                    parts = details["parts"]
+                    for part in parts:
+                        if part.get("slug") == part_slug:
+                            from src.etl.parse import strip_html
+                            full_text = strip_html(part.get("body", ""))
+                            break
+                if not full_text:
+                    body = details.get("body", "")
+                    if body:
+                        from src.etl.parse import strip_html
+                        full_text = strip_html(body)
+            except Exception as e:
+                print(f"Failed to read/parse mainstream JSON cache: {e}")
+                
+        if not full_text:
+            full_text = p.get("text", "")
+            
+        return {
+            "section_id": p["section_id"],
+            "title": p["title"],
+            "manual_title": p["manual_title"],
+            "text": full_text,
+            "related_pages": [],
+            "breadcrumb": [],
+            "gov_url": p["gov_url"],
+            "updated_at": p["updated_at"]
+        }
+
     manual_slug = p["manual_slug"]
     
     # Read pristine, unchunked full text directly from the local JSON cache
@@ -159,6 +207,7 @@ async def get_page(code: str):
         context_header = f"Manual: {p['manual_title']}\nSection: {p['section_id']} - {p['title']}\n\n"
         if full_text.startswith(context_header):
             full_text = full_text[len(context_header):]
+        full_text = full_text + "\n\n[Warning: Document too long and local cache missing, showing partial chunk]"
 
     return {
         "section_id": p["section_id"],

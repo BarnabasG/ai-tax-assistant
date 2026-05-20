@@ -23,13 +23,19 @@ async def embed_query(query: str) -> list[float]:
                 return data.get("embeddings", [[]])[0]
     return []
 
-SYSTEM_PROMPT = """You are an expert UK tax legislation assistant for an accountancy firm.
+SYSTEM_PROMPT = """You are a helpful UK tax assistant. You answer queries using the provided context, which contains excerpts from technical HMRC Internal Manuals and/or GOV.UK guidance.
 
 RULES:
-1. Answer ONLY using the provided HMRC manual excerpts below.
-2. Cite every factual claim with the exact page code in square brackets, e.g. [VIT13500].
-3. Only if the provided context is completely irrelevant to the query should you state: "I could not find specific HMRC guidance on this topic". If you can answer the query (even partially), do so and omit this refusal statement entirely.
-4. Be precise and professional. Quote exact wording from the manuals where highly relevant.
+1. Ground your answers strictly in the provided context below.
+2. Adapt your tone and style depending on the source material you cite:
+   - When explaining concepts from a GOV.UK guide, write in clear, direct, and accessible professional English.
+   - When explaining details from a technical HMRC manual, maintain high technical and legal precision.
+   - Blend these sources seamlessly. Do NOT use headers, labels, or signposts like "Simple Guidance", "Plain English", "Technical details", or similar. Write a single, cohesive, professional response.
+3. Cite your sources using their exact code in square brackets:
+   - For HMRC manuals, cite the code (e.g. [VIT13500]).
+   - For GOV.UK guides, cite the guide code (e.g. [GOV:self-assessment-tax-returns/deadlines]).
+   - Avoid over-citation: if a single source applies to an entire paragraph or list of bullet points, cite it once at the end of that block/paragraph rather than repeating it on every sentence or bullet item.
+4. Only if the provided context is completely irrelevant to the query should you state: "I could not find specific HMRC guidance on this topic". If you can answer the query (even partially), do so and omit this refusal statement entirely.
 5. At the absolute end of your response (after all explanations), output exactly 3 suggested follow-up questions that the user might want to ask next. Wrap them in a <suggestions> tag and separate each with a pipe character |. Example: <suggestions>What is the VAT rate?|How do I apply?|Are there exceptions?</suggestions>
 
 CONTEXT:
@@ -37,8 +43,9 @@ CONTEXT:
 """
 
 def verify_citations(response: str, allowed_codes: set[str]) -> list[str]:
-    """Finds all citations like [VIT13500] and returns any that are hallucinated."""
-    citations = re.findall(r'\[([A-Z]{2,6}\d{4,6})\]', response)
+    """Finds all citations like [VIT13500] or [GOV:slug] (using standard or fullwidth brackets) and returns hallucinated ones."""
+    pattern = r'(?:\[|【)([A-Z]{2,6}\d{4,6}|GOV:[a-zA-Z0-9\-\/]+)(?:\]|】)'
+    citations = re.findall(pattern, response)
     hallucinated = [c for c in citations if c not in allowed_codes]
     return hallucinated
 
@@ -80,6 +87,18 @@ async def stream_rag_answer(query: str, chat_history: list[dict], model: str) ->
     
     messages = [{"role": "system", "content": sys_prompt}] + chat_history + [{"role": "user", "content": query}]
     
+    # Deduplicate sources
+    seen_sources = set()
+    unique_sources = []
+    for r in results:
+        sid = r.payload["section_id"]
+        if sid not in seen_sources:
+            unique_sources.append({"section_id": sid, "title": r.payload["title"]})
+            seen_sources.add(sid)
+
+    # Yield early metadata containing sources before the chat starts streaming
+    yield json.dumps({"sources": unique_sources}) + "\n\n"
+
     # 4. Stream response
     full_response = ""
     async for chunk_json in router.stream_chat(messages, model):
@@ -94,15 +113,6 @@ async def stream_rag_answer(query: str, chat_history: list[dict], model: str) ->
     # 5. Verification
     hallucinated = verify_citations(full_response, allowed_codes)
     
-    # Deduplicate sources
-    seen_sources = set()
-    unique_sources = []
-    for r in results:
-        sid = r.payload["section_id"]
-        if sid not in seen_sources:
-            unique_sources.append({"section_id": sid, "title": r.payload["title"]})
-            seen_sources.add(sid)
-
     metadata = {
         "done": True,
         "sources": unique_sources,

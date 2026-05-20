@@ -59,6 +59,20 @@ class QdrantStore:
                 field_name="manual_slug",
                 field_schema=models.PayloadSchemaType.KEYWORD,
             )
+
+        if "audience_level" not in existing_indexes:
+            await self.client.create_payload_index(
+                collection_name=COLLECTION,
+                field_name="audience_level",
+                field_schema=models.PayloadSchemaType.KEYWORD,
+            )
+
+        if "source_type" not in existing_indexes:
+            await self.client.create_payload_index(
+                collection_name=COLLECTION,
+                field_name="source_type",
+                field_schema=models.PayloadSchemaType.KEYWORD,
+            )
             
         if "title" not in existing_indexes:
             await self.client.create_payload_index(

@@ -55,14 +55,14 @@ cp .env.example .env
 Once authenticated, the UI will automatically route cloud model requests through your local Ollama instance to the cloud provider securely.
 
 ### 5. Ingest Data (Pick one method)
-You need to populate the database with the HMRC manuals.
+You need to populate the database with the HMRC Internal Manuals and GOV.UK Tax Guides.
 
 **Method A: Restore from Snapshot (Fastest)**
 If a pre-computed `hmrc_data.snapshot` file is provided, place it in the `backend/data/` folder and run:
 ```bash
 make import-data
 ```
-*Note: A point-in-time snapshot of HMRC Legislation from May 2026 is available on [release v1.0.0](https://github.com/BarnabasG/ai-tax-assistant/releases/tag/v1.0.0)*
+*Note: A pre-computed database snapshot is automatically updated weekly. The latest snapshot is available on the [Releases page](https://github.com/BarnabasG/ai-tax-assistant/releases).*
 
 **Method B: Build from Scratch**
 Run the automated ETL pipeline to download and index everything from GOV.UK. 

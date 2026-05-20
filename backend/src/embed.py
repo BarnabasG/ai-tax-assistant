@@ -184,6 +184,8 @@ async def embed_and_upsert_batch(session: aiohttp.ClientSession, docs: list[dict
                 "breadcrumb": doc["breadcrumb"],
                 "gov_url": doc["gov_url"],
                 "updated_at": doc["updated_at"],
+                "audience_level": doc.get("audience_level", "internal_manual"),
+                "source_type": doc.get("source_type", "hmrc_manual"),
             }
             
             point_metadata.append((point_id, payload, full_text))

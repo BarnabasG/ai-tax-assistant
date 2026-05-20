@@ -17,7 +17,7 @@
   --color-muted: #3b4560;
   --color-muted-foreground: #8892a8;
 
-  --color-accent: #5bcdfa;
+  --color-accent: #708da9;
   --color-accent-foreground: #ffffff;
 
   --color-border: #252d3f;
@@ -106,6 +106,20 @@
 /* Citation inline lozenge badge */
 .citation-btn {
   @apply inline-flex items-center gap-1 bg-primary/15 text-primary px-2 py-0.5 rounded-full text-xs font-bold font-mono cursor-pointer transition-all duration-150 border border-primary/20 hover:bg-primary/25 hover:border-primary/40 hover:shadow-sm hover:shadow-primary/10 align-middle ml-1.5 mr-0.5;
+}
+
+/* GOV.UK Guidance inline badge (Cyan/Accent theme) */
+.citation-btn-gov {
+  @apply inline-flex items-center gap-1 bg-accent/15 text-accent px-2 py-0.5 rounded-full text-xs font-semibold cursor-pointer transition-all duration-150 border border-accent/20 hover:bg-accent/25 hover:border-accent/40 hover:shadow-sm hover:shadow-accent/10 align-middle ml-1.5 mr-0.5;
+}
+
+/* Subtle/repeated citations (Index numbers) */
+.citation-btn-subtle {
+  @apply inline-flex items-center gap-0.5 bg-primary/5 text-primary/70 px-1 py-0.5 rounded text-[10px] font-mono cursor-pointer transition-all duration-150 border border-primary/10 hover:bg-primary/15 hover:text-primary align-middle ml-1 mr-0.5;
+}
+
+.citation-btn-gov-subtle {
+  @apply inline-flex items-center gap-0.5 bg-accent/5 text-accent/70 px-1 py-0.5 rounded text-[10px] font-mono cursor-pointer transition-all duration-150 border border-accent/10 hover:bg-accent/15 hover:text-accent align-middle ml-1 mr-0.5;
 }
 
 /* Suggestion chip */
